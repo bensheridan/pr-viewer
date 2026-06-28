@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pr-viewer",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/pr-viewer/server.js"],
+      "port": 4319
+    }
+  ]
+}
