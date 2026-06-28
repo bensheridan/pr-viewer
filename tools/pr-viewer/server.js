@@ -100,13 +100,31 @@ app.get("/api/prs/:num", async (req, res) => {
       else if (/(^|\/)plan\.md$/.test(p)) specPaths.push({ path: p, kind: 'plan' });
       else if (/(^|\/)tasks\.md$/.test(p)) specPaths.push({ path: p, kind: 'tasks' });
     }
+    // Extract added line numbers per spec file from the unified diff
+    function extractAddedLines(diffText, filePath) {
+      const added = [];
+      let inFile = false, newNo = 0;
+      for (const ln of diffText.split('\n')) {
+        if (ln.startsWith('+++ b/')) { inFile = ln.slice(6) === filePath; continue; }
+        if (!inFile) continue;
+        if (ln.startsWith('@@')) {
+          const m = ln.match(/@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+          newNo = m ? +m[1] : 0; continue;
+        }
+        if (ln.startsWith('+')) { added.push(newNo); newNo++; }
+        else if (!ln.startsWith('-')) newNo++;
+      }
+      return added;
+    }
+
     const specFiles = (await Promise.allSettled(
       specPaths.map(async ({ path, kind }) => {
         const b64 = await gh([
           'api', `repos/${repo}/contents/${path}?ref=${meta.headRefOid}`, '--jq', '.content',
         ]);
         const markdown = Buffer.from(b64.replace(/\n/g, ''), 'base64').toString('utf8');
-        return { path, kind, markdown };
+        const addedLines = extractAddedLines(diff, path);
+        return { path, kind, markdown, addedLines };
       })
     )).flatMap(r => r.status === 'fulfilled' ? [r.value] : []);
 
@@ -153,6 +171,27 @@ app.post("/api/prs/:num/review", async (req, res) => {
     const out = await gh([
       "api",
       `repos/${repo}/pulls/${num}/reviews`,
+      "--method", "POST",
+      "--input", tmp,
+    ]);
+    res.json({ ok: true, result: out.trim() ? JSON.parse(out) : null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    unlink(tmp).catch(() => {});
+  }
+});
+
+// Reply to an existing inline review comment thread.
+app.post("/api/prs/:num/comment/reply", async (req, res) => {
+  const { comment_id, body, repo } = req.body;
+  if (!body) return res.status(400).json({ error: "Empty reply" });
+  const tmp = join(os.tmpdir(), `pr-reply-${comment_id}-${Date.now()}.json`);
+  try {
+    await writeFile(tmp, JSON.stringify({ body }));
+    const out = await gh([
+      "api",
+      `repos/${repo}/pulls/comments/${comment_id}/replies`,
       "--method", "POST",
       "--input", tmp,
     ]);

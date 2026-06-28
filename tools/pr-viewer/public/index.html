@@ -299,7 +299,7 @@ tr.selected .gutter-r{ box-shadow: inset 2px 0 0 var(--sel-edge); }
 tr.sel-start td.code { box-shadow: inset 0 1px 0 var(--sel-edge); }
 tr.sel-end td.code   { box-shadow: inset 0 -1px 0 var(--sel-edge); }
 /* Split diff */
-.split-left  td.code { border-right: 1px solid var(--border); }
+td.code.split-left { border-right: 1px solid var(--border); }
 td.empty-cell { background: var(--empty-bg); }
 
 /* Spec panel */
@@ -426,6 +426,8 @@ tr.comment-row td { padding: 0; }
   font-family: var(--sans); font-size: 13px; white-space: pre-wrap;
 }
 .inline-comment .who { color: var(--accent); font-weight: 600; font-size: 12px; margin-bottom: 3px; }
+.reply-btn { margin-top: 6px; font-size: 11px; padding: 2px 8px; background: transparent; border: 1px solid var(--border); color: var(--text3); cursor: pointer; border-radius: var(--radius-sm); }
+.reply-btn:hover { color: var(--text1); border-color: var(--accent); }
 
 /* ─── Confirm Modal ──────────────────────────────────────────────────────── */
 .modal-overlay {
@@ -521,6 +523,9 @@ kbd { font-family: var(--mono); font-size: 11px; background: var(--s2); border: 
           <div class="diff-toolbar" id="diffToolbar">
             <span class="file-path" id="diffFilePath" style="color:var(--text3)">No file selected</span>
             <div class="spacer" style="flex:1"></div>
+            <label class="viewed-toggle" id="viewedToggle" style="display:none">
+              <input type="checkbox" id="viewedCheck"> Viewed
+            </label>
             <div class="segmented" id="diffModeToggle">
               <button id="btnUnified" class="active" onclick="setDiffMode('unified')">Unified</button>
               <button id="btnSplit" onclick="setDiffMode('split')">Split</button>
@@ -593,7 +598,7 @@ kbd { font-family: var(--mono); font-size: 11px; background: var(--s2); border: 
 const state = {
   prs: [], current: null, repo: null, commitId: null,
   files: [],        // code diff files (excludes spec files)
-  specFiles: [],    // [{ path, kind, markdown }]
+  specFiles: [],    // [{ path, kind, markdown, addedLines }]
   tasks: [],        // parsed from tasks.md
   pending: [],      // pending inline comments
   commentsByLoc: {},
@@ -606,7 +611,15 @@ const state = {
   confirm: null,
   prState: 'open',
   prMeta: null,
+  viewed: new Map(), // Map<prNum, Set<filePath>>
 };
+
+function isViewed(path) { return (state.viewed.get(state.current) ?? new Set()).has(path); }
+function setViewed(path, val) {
+  if (!state.viewed.has(state.current)) state.viewed.set(state.current, new Set());
+  const s = state.viewed.get(state.current);
+  if (val) s.add(path); else s.delete(path);
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 const $ = (s, r=document) => r.querySelector(s);
@@ -730,7 +743,15 @@ async function openPR(num) {
   const specPaths = new Set((data.specFiles || []).map(sf => sf.path));
   const allFiles = parseDiff(data.diff);
   state.specFiles = data.specFiles || [];
-  state.files = allFiles.filter(f => !specPaths.has(f.path));
+  const fileTypePriority = p => {
+    const ext = p.split('.').pop().toLowerCase();
+    if (/^(js|ts|jsx|tsx|mjs|cjs|py|rb|go|rs|java|kt|swift|c|cpp|cs|php|sh|bash)$/.test(ext)) return 0;
+    if (/^(json|yaml|yml|toml|env|ini|cfg|conf|lock)$/.test(ext)) return 1;
+    return 2; // md, txt, and everything else
+  };
+  state.files = allFiles
+    .filter(f => !specPaths.has(f.path))
+    .sort((a, b) => fileTypePriority(a.path) - fileTypePriority(b.path));
 
   attachComments(data.comments);
 
@@ -783,10 +804,10 @@ function parseDiff(diff) {
 }
 
 // ─── Markdown Renderer ────────────────────────────────────────────────────
-function renderMarkdown(text) {
+function renderMarkdown(text, addedLines = new Set()) {
   const wrap = el('div', { className: 'md' });
   const lines = text.split('\n');
-  let i = 0;
+  let i = 0, lineIdx = 1;
   while (i < lines.length) {
     const ln = lines[i];
     // Headings
@@ -794,7 +815,8 @@ function renderMarkdown(text) {
     if (hm) {
       const h = el('h' + hm[1].length, {});
       h.append(document.createTextNode(hm[2]));
-      wrap.append(h); i++; continue;
+      if (addedLines.has(lineIdx)) h.classList.add('md-highlight');
+      wrap.append(h); i++; lineIdx++; continue;
     }
     // Unordered list
     if (ln.match(/^[-*]\s+/) && !ln.match(/^[-*]\s+\[[ x]\]/i)) {
@@ -802,22 +824,27 @@ function renderMarkdown(text) {
       while (i < lines.length && lines[i].match(/^[-*]\s+/)) {
         const li = el('li');
         appendInline(li, lines[i].replace(/^[-*]\s+/, ''));
-        ul.append(li); i++;
+        if (addedLines.has(lineIdx)) li.classList.add('md-highlight');
+        ul.append(li); i++; lineIdx++;
       }
       wrap.append(ul); continue;
     }
     // Blank line
-    if (!ln.trim()) { i++; continue; }
+    if (!ln.trim()) { i++; lineIdx++; continue; }
     // Task lines — skip (handled by parseTasks)
-    if (ln.match(/^[-*]\s+\[[ x]\]/i)) { i++; continue; }
+    if (ln.match(/^[-*]\s+\[[ x]\]/i)) { i++; lineIdx++; continue; }
     // Paragraph: collect until blank
     const p = el('p');
+    const startIdx = lineIdx;
     while (i < lines.length && lines[i].trim() && !lines[i].match(/^#{1,3}\s/) && !lines[i].match(/^[-*]\s+/)) {
-      appendInline(p, lines[i]); p.append(el('br')); i++;
+      appendInline(p, lines[i]); p.append(el('br')); i++; lineIdx++;
     }
     // Remove trailing <br>
     if (p.lastChild?.tagName === 'BR') p.lastChild.remove();
-    if (p.childNodes.length) wrap.append(p);
+    if (p.childNodes.length) {
+      if (addedLines.has(startIdx)) p.classList.add('md-highlight');
+      wrap.append(p);
+    }
   }
   return wrap;
 }
@@ -837,20 +864,21 @@ function appendInline(node, text) {
 }
 
 // ─── Task Parser ──────────────────────────────────────────────────────────
-function parseTasks(markdown) {
-  const tasks = []; let phase = 'Tasks';
+function parseTasks(markdown, addedLines = new Set()) {
+  const tasks = []; let phase = 'Tasks'; let lineIdx = 1;
   for (const ln of markdown.split('\n')) {
     const hm = ln.match(/^#{1,3}\s+(.+)/);
-    if (hm) { phase = hm[1].trim(); continue; }
+    if (hm) { phase = hm[1].trim(); lineIdx++; continue; }
     const tm = ln.match(/^[-*]\s+\[([ x])\]\s*(.*)/i);
-    if (!tm) continue;
+    if (!tm) { lineIdx++; continue; }
     const done = tm[1].toLowerCase() === 'x';
     const rest = tm[2].trim();
     const cm = rest.match(/^(T\d+)\s+(.*)/);
     const code = cm ? cm[1] : '';
     const text = cm ? cm[2] : rest;
-    const isNew = /\[new\]/i.test(text);
+    const isNew = /\[new\]/i.test(text) || addedLines.has(lineIdx);
     tasks.push({ code, text: text.replace(/\[new\]/i, '').trim(), done, phase, isNew });
+    lineIdx++;
   }
   return tasks;
 }
@@ -889,16 +917,30 @@ function renderFileRail() {
   }
 
   if (state.files.length > 0) {
-    const grpLabel = el('div', { className: 'rail-group-label', textContent: 'Code' });
-    rail.append(grpLabel);
+    const fileGroup = p => {
+      const ext = p.split('.').pop().toLowerCase();
+      if (/^(js|ts|jsx|tsx|mjs|cjs|py|rb|go|rs|java|kt|swift|c|cpp|cs|php|sh|bash)$/.test(ext)) return 'Code';
+      if (/^(json|yaml|yml|toml|env|ini|cfg|conf|lock)$/.test(ext)) return 'Config';
+      return 'Docs';
+    };
+    let lastGroup = null;
     for (const f of state.files) {
+      const group = fileGroup(f.path);
+      if (group !== lastGroup) {
+        rail.append(el('div', { className: 'rail-group-label', textContent: group }));
+        lastGroup = group;
+      }
+      const viewed = isViewed(f.path);
       const row = el('div', { className: 'rail-file' + (f.path === state.selFile ? ' active' : '') });
       row.append(el('span', { className: 'status-dot ' + (f.status || 'modified') }));
-      row.append(el('span', { className: 'rf-name', textContent: f.path }));
+      const nameEl = el('span', { className: 'rf-name', textContent: f.path });
+      if (viewed) nameEl.style.opacity = '0.5';
+      row.append(nameEl);
       const stat = el('span', { className: 'rf-stat' });
       stat.append(el('span', { className: 'add', textContent: '+' + f.additions }));
       stat.append(document.createTextNode(' '));
       stat.append(el('span', { className: 'del', textContent: '−' + f.deletions }));
+      if (viewed) stat.append(el('span', { style: 'color:var(--ok);opacity:0.7;margin-left:4px', textContent: '✓' }));
       row.append(stat);
       row.onclick = () => { state.selFile = f.path; renderFileRail(); renderDiff(f.path); };
       rail.append(row);
@@ -938,17 +980,21 @@ function renderSpecPanel() {
   if (!active) return;
 
   if (active.kind === 'tasks') {
-    renderTasksPanel(content);
+    renderTasksPanel(content, new Set(active.addedLines || []));
   } else {
     if (active.markdown) {
-      content.append(renderMarkdown(active.markdown));
+      content.append(renderMarkdown(active.markdown, new Set(active.addedLines || [])));
     } else {
       content.append(el('div', { className: 'empty', style: 'padding:20px 0', textContent: 'Could not load ' + active.path.split('/').pop() }));
     }
   }
 }
 
-function renderTasksPanel(container) {
+function renderTasksPanel(container, addedLines = new Set()) {
+  state.tasks = parseTasks(
+    (state.specFiles.find(sf => sf.kind === 'tasks') || {}).markdown || '',
+    addedLines
+  );
   const done = state.tasks.filter(t => t.done).length;
   const total = state.tasks.length;
 
@@ -1005,6 +1051,14 @@ function renderDiff(path) {
 
   const pathEl = $('#diffFilePath');
   if (pathEl) pathEl.textContent = path;
+
+  // Viewed toggle
+  const toggle = $('#viewedToggle'), check = $('#viewedCheck');
+  if (toggle && check) {
+    toggle.style.display = 'flex';
+    check.checked = isViewed(path);
+    check.onchange = () => { setViewed(path, check.checked); renderFileRail(); };
+  }
 
   if (!f) { scroll.append(el('div', { className: 'diff-empty', textContent: 'No diff for this file.' })); return; }
 
@@ -1094,7 +1148,7 @@ function renderDiffSplit(f) {
     tr.append(gL);
     const codeL = el('td', { className: 'code split-left' + (L ? (L.type === 'del' ? ' del-cell' : '') : '') });
     if (L) {
-      if (L.type === 'del') { tr.classList.add(''); codeL.style.background = 'var(--del-bg)'; }
+      if (L.type === 'del') { codeL.style.background = 'var(--del-bg)'; }
       codeL.append(el('span', { className: 'sign-col', textContent: L.type === 'del' ? '-' : ' ' }));
       codeL.append(document.createTextNode(L.text));
     } else {
@@ -1136,6 +1190,11 @@ function makeCommentRow(c, colSpan) {
   const box = el('div', { className: 'inline-comment' });
   box.append(el('div', { className: 'who', textContent: '@' + (c.user?.login || '?') }));
   box.append(document.createTextNode(c.body || ''));
+  if (c.id) {
+    const replyBtn = el('button', { className: 'reply-btn', textContent: 'Reply' });
+    replyBtn.onclick = () => openReplyComposer(c.id, box);
+    box.append(replyBtn);
+  }
   td.append(box); crow.append(td);
   return crow;
 }
@@ -1218,6 +1277,48 @@ function positionComposer(c, line, path) {
   c.style.top = top + 'px'; c.style.left = Math.max(12, left) + 'px';
 }
 function closeComposer() { if (composerEl) { composerEl.remove(); composerEl = null; } }
+
+// ─── Reply Composer ───────────────────────────────────────────────────────
+let replyComposerEl = null;
+function openReplyComposer(commentId, anchorEl) {
+  closeReplyComposer();
+  const c = el('div', { className: 'composer' });
+  c.append(el('div', { className: 'ctx', textContent: 'Replying to thread' }));
+  const ta = el('textarea', { placeholder: 'Write a reply…' });
+  c.append(ta);
+  const row = el('div', { className: 'row' });
+  row.append(el('span', { className: 'spacer' }));
+  row.append(el('button', { textContent: 'Cancel', onclick: closeReplyComposer }));
+  const send = el('button', { className: 'primary', textContent: 'Reply' });
+  send.onclick = () => { if (ta.value.trim()) submitReply(commentId, ta.value.trim(), ta); };
+  row.append(send);
+  c.append(row);
+  anchorEl.after(c);
+  replyComposerEl = c;
+  ta.focus();
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send.click();
+    if (e.key === 'Escape') closeReplyComposer();
+  });
+}
+function closeReplyComposer() { if (replyComposerEl) { replyComposerEl.remove(); replyComposerEl = null; } }
+
+async function submitReply(commentId, body, ta) {
+  try {
+    const res = await fetch(`/api/prs/${state.current}/comment/reply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment_id: commentId, body, repo: state.repo }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Reply failed');
+    closeReplyComposer();
+    toast('Reply posted');
+    openPR(state.current);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
 function collectLines(path, start, end) {
   const out = [];
   for (let l = start; l <= end; l++) {
