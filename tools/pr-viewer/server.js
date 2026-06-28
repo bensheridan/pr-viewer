@@ -91,7 +91,26 @@ app.get("/api/prs/:num", async (req, res) => {
       comments = [];
     }
 
-    res.json({ meta, diff, comments, repo });
+    // Detect spec files in the diff and fetch their full content at head ref
+    const specPaths = [];
+    for (const ln of diff.split('\n')) {
+      if (!ln.startsWith('+++ b/')) continue;
+      const p = ln.slice(6);
+      if (/(^|\/)spec\.md$/.test(p)) specPaths.push({ path: p, kind: 'spec' });
+      else if (/(^|\/)plan\.md$/.test(p)) specPaths.push({ path: p, kind: 'plan' });
+      else if (/(^|\/)tasks\.md$/.test(p)) specPaths.push({ path: p, kind: 'tasks' });
+    }
+    const specFiles = (await Promise.allSettled(
+      specPaths.map(async ({ path, kind }) => {
+        const b64 = await gh([
+          'api', `repos/${repo}/contents/${path}?ref=${meta.headRefOid}`, '--jq', '.content',
+        ]);
+        const markdown = Buffer.from(b64.replace(/\n/g, ''), 'base64').toString('utf8');
+        return { path, kind, markdown };
+      })
+    )).flatMap(r => r.status === 'fulfilled' ? [r.value] : []);
+
+    res.json({ meta, diff, comments, repo, specFiles });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
