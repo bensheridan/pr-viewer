@@ -86,13 +86,41 @@ a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 /* ─── App Shell ──────────────────────────────────────────────────────────── */
-.app { display: grid; grid-template-columns: 300px 1fr; height: 100vh; }
+:root {
+  --w-sidebar: 260px;
+  --w-rail: 262px;
+  --w-spec: 392px;
+}
+.app { display: flex; height: 100vh; overflow: hidden; }
+
+/* ─── Resize Handles ─────────────────────────────────────────────────────── */
+.rh {
+  width: 5px; flex-shrink: 0; background: var(--border);
+  cursor: col-resize; position: relative; z-index: 20;
+  transition: background .12s;
+}
+/* Widen the grabbable hit area without widening the visible line */
+.rh::before {
+  content: ''; position: absolute; inset: 0 -4px; cursor: col-resize;
+}
+.rh:hover, .rh.dragging { background: var(--accent); }
+.rh-btn {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 18px; height: 36px; background: var(--s2); border: 1px solid var(--border);
+  border-radius: 4px; display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: var(--text3); cursor: pointer; padding: 0; z-index: 1;
+  opacity: 0; transition: opacity .15s;
+}
+.rh:hover .rh-btn, .rh-btn:focus { opacity: 1; }
+.rh-btn:hover { color: var(--text); border-color: var(--accent); background: var(--s3); }
 
 /* ─── Left Sidebar: PR List ─────────────────────────────────────────────── */
 .sidebar {
-  border-right: 1px solid var(--border); overflow-y: auto;
+  width: var(--w-sidebar); flex-shrink: 0; overflow-y: auto; overflow-x: hidden;
   background: var(--surface); display: flex; flex-direction: column;
+  transition: width .15s ease;
 }
+.sidebar.collapsed { width: 0; }
 .sidebar-head {
   padding: 12px 14px 10px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 8px; position: sticky; top: 0;
@@ -114,7 +142,7 @@ a:hover { text-decoration: underline; }
 .pill.merged  { color: var(--text3);  border-color: var(--border); }
 
 /* ─── Right Pane: Top Bar + Tab Content ─────────────────────────────────── */
-.right-pane { display: flex; flex-direction: column; height: 100vh; min-width: 0; }
+.right-pane { display: flex; flex-direction: column; height: 100vh; min-width: 0; flex: 1; }
 
 .topbar {
   display: flex; align-items: center; gap: 0;
@@ -236,9 +264,11 @@ a:hover { text-decoration: underline; }
   flex: 1; display: flex; min-height: 0;
 }
 .file-rail {
-  width: 262px; flex-shrink: 0; border-right: 1px solid var(--border);
-  background: var(--surface); overflow-y: auto;
+  width: var(--w-rail); flex-shrink: 0;
+  background: var(--surface); overflow-y: auto; overflow-x: hidden;
+  transition: width .15s ease;
 }
+.file-rail.collapsed { width: 0; }
 .rail-group-label {
   font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text3); padding: 10px 12px 4px; display: flex; align-items: center; gap: 6px;
@@ -352,9 +382,11 @@ td.empty-cell { background: var(--empty-bg); }
 
 /* Spec panel */
 .spec-panel {
-  width: 392px; flex-shrink: 0; border-left: 1px solid var(--border);
+  width: var(--w-spec); flex-shrink: 0;
   background: var(--surface); display: flex; flex-direction: column;
+  overflow: hidden; transition: width .15s ease;
 }
+.spec-panel.collapsed { width: 0; }
 .spec-panel-head {
   height: 46px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 8px; padding: 0 12px; flex-shrink: 0;
@@ -519,13 +551,18 @@ kbd { font-family: var(--mono); font-size: 11px; background: var(--s2); border: 
 
 <div class="app">
   <!-- Left sidebar: PR list -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-head">
       <h1>PR Viewer</h1>
       <span class="repo-label" id="repoLabel">—</span>
     </div>
     <div id="prList"><div class="empty">Loading PRs…</div></div>
   </aside>
+
+  <!-- Resize handle: sidebar ↔ right pane -->
+  <div class="rh" id="rhSidebar">
+    <button class="rh-btn" id="rhSidebarBtn" title="Collapse/expand sidebar">◀</button>
+  </div>
 
   <!-- Right pane: top bar + three tab panes -->
   <div class="right-pane">
@@ -567,6 +604,9 @@ kbd { font-family: var(--mono); font-size: 11px; background: var(--s2); border: 
         <nav class="file-rail" id="fileRail">
           <div class="empty" style="padding:30px 12px">Select a PR.</div>
         </nav>
+        <div class="rh" id="rhRail">
+          <button class="rh-btn" id="rhRailBtn" title="Collapse/expand file rail">◀</button>
+        </div>
         <div class="diff-area">
           <div class="diff-toolbar" id="diffToolbar">
             <span class="file-path" id="diffFilePath" style="color:var(--text3)">No file selected</span>
@@ -592,6 +632,9 @@ kbd { font-family: var(--mono); font-size: 11px; background: var(--s2); border: 
           <div class="diff-scroll" id="diffScroll">
             <div class="diff-empty">Select a file from the rail.</div>
           </div>
+        </div>
+        <div class="rh" id="rhSpec" style="display:none">
+          <button class="rh-btn" id="rhSpecBtn" title="Collapse/expand spec panel">▶</button>
         </div>
         <aside class="spec-panel" id="specPanel" style="display:none">
           <div class="spec-panel-head">
@@ -1023,8 +1066,10 @@ function renderSpecPanel() {
   const panel = $('#specPanel');
   const tabBar = $('#specTabs');
   const content = $('#specContent');
-  if (!state.specFiles.length) { panel.style.display = 'none'; return; }
+  const rhSpec = $('#rhSpec');
+  if (!state.specFiles.length) { panel.style.display = 'none'; if (rhSpec) rhSpec.style.display = 'none'; return; }
   panel.style.display = 'flex';
+  if (rhSpec) rhSpec.style.display = '';
 
   // Tab bar
   tabBar.innerHTML = '';
@@ -1685,6 +1730,100 @@ function renderReview() {
   mergeCard.append(el('div', { style: 'font-size:13px;color:var(--text3)', textContent: 'Merging is done on GitHub.com — this keeps the review tool focused on reading and commenting.' }));
   container.append(mergeCard);
 }
+
+// ─── Resizable / Collapsible Columns ─────────────────────────────────────
+const PANEL_MINS = { sidebar: 160, rail: 140, spec: 220 };
+const PANEL_KEYS = { sidebar: '--w-sidebar', rail: '--w-rail', spec: '--w-spec' };
+const LS_WIDTHS  = 'pr-viewer-col-widths';
+const LS_COLLAPSED = 'pr-viewer-col-collapsed';
+
+function loadPanelState() {
+  try {
+    const w = JSON.parse(localStorage.getItem(LS_WIDTHS) || '{}');
+    const c = JSON.parse(localStorage.getItem(LS_COLLAPSED) || '{}');
+    if (w.sidebar) document.documentElement.style.setProperty('--w-sidebar', w.sidebar + 'px');
+    if (w.rail)    document.documentElement.style.setProperty('--w-rail',    w.rail    + 'px');
+    if (w.spec)    document.documentElement.style.setProperty('--w-spec',    w.spec    + 'px');
+    if (c.sidebar) collapsePanel('sidebar', true, true);
+    if (c.rail)    collapsePanel('rail',    true, true);
+    if (c.spec)    collapsePanel('spec',    true, true);
+  } catch {}
+}
+
+function savePanelWidths() {
+  try {
+    const get = v => parseInt(getComputedStyle(document.documentElement).getPropertyValue(v));
+    localStorage.setItem(LS_WIDTHS, JSON.stringify({
+      sidebar: get('--w-sidebar'), rail: get('--w-rail'), spec: get('--w-spec')
+    }));
+  } catch {}
+}
+
+function savePanelCollapsed() {
+  try {
+    localStorage.setItem(LS_COLLAPSED, JSON.stringify({
+      sidebar: $('#sidebar').classList.contains('collapsed'),
+      rail:    $('#fileRail').classList.contains('collapsed'),
+      spec:    $('#specPanel').classList.contains('collapsed'),
+    }));
+  } catch {}
+}
+
+function collapsePanel(panel, collapsed, silent = false) {
+  const els = {
+    sidebar: { el: $('#sidebar'),   btn: $('#rhSidebarBtn'), openIcon: '▶', closeIcon: '◀' },
+    rail:    { el: $('#fileRail'),  btn: $('#rhRailBtn'),    openIcon: '▶', closeIcon: '◀' },
+    spec:    { el: $('#specPanel'), btn: $('#rhSpecBtn'),    openIcon: '◀', closeIcon: '▶' },
+  };
+  const { el, btn, openIcon, closeIcon } = els[panel];
+  if (!el) return;
+  el.classList.toggle('collapsed', collapsed);
+  if (btn) btn.textContent = collapsed ? openIcon : closeIcon;
+  if (!silent) savePanelCollapsed();
+}
+
+function toggleCollapse(panel) {
+  const el = panel === 'sidebar' ? $('#sidebar') : panel === 'rail' ? $('#fileRail') : $('#specPanel');
+  collapsePanel(panel, !el.classList.contains('collapsed'));
+}
+
+function makeResizable(rhId, panel, getEl) {
+  const rh = $('#' + rhId);
+  if (!rh) return;
+  let startX, startW;
+  rh.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('rh-btn')) return;
+    e.preventDefault();
+    const el = getEl();
+    if (!el || el.classList.contains('collapsed')) return;
+    startX = e.clientX;
+    startW = el.getBoundingClientRect().width;
+    rh.classList.add('dragging');
+    const onMove = mv => {
+      const delta = panel === 'spec' ? startX - mv.clientX : mv.clientX - startX;
+      const newW = Math.max(PANEL_MINS[panel], startW + delta);
+      document.documentElement.style.setProperty(PANEL_KEYS[panel], newW + 'px');
+    };
+    const onUp = () => {
+      rh.classList.remove('dragging');
+      savePanelWidths();
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  const btn = rh.querySelector('.rh-btn');
+  if (btn) btn.addEventListener('click', () => toggleCollapse(panel));
+}
+
+// Wire up all three handles
+makeResizable('rhSidebar', 'sidebar', () => $('#sidebar'));
+makeResizable('rhRail',    'rail',    () => $('#fileRail'));
+makeResizable('rhSpec',    'spec',    () => $('#specPanel'));
+
+// Load saved state on init
+loadPanelState();
 
 // ─── PR Description Card ──────────────────────────────────────────────────
 function renderPRDesc(meta) {
