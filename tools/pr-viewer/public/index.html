@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PR Viewer</title>
+<style>
+  :root {
+    --bg: #0f1116;
+    --panel: #161922;
+    --panel-2: #1b1f2a;
+    --border: #262b38;
+    --text: #d7dce5;
+    --muted: #8a93a6;
+    --accent: #6ea8fe;
+    --add-bg: rgba(63, 185, 80, 0.12);
+    --add-gutter: rgba(63, 185, 80, 0.28);
+    --del-bg: rgba(248, 81, 73, 0.10);
+    --del-gutter: rgba(248, 81, 73, 0.26);
+    --sel: rgba(110, 168, 254, 0.20);
+    --sel-edge: rgba(110, 168, 254, 0.55);
+    --hunk: #232838;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 14px; line-height: 1.5;
+  }
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    background: var(--panel); position: sticky; top: 0; z-index: 20;
+  }
+  header h1 { font-size: 14px; font-weight: 600; margin: 0; letter-spacing: .2px; }
+  header .repo { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  header .spacer { flex: 1; }
+  button {
+    font-family: var(--sans); font-size: 13px; cursor: pointer;
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 5px 11px;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #0b1020; border-color: var(--accent); font-weight: 600; }
+  button.danger:hover { border-color: #f85149; color: #f85149; }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .layout { display: grid; grid-template-columns: 300px 1fr; height: calc(100vh - 49px); }
+  .sidebar { border-right: 1px solid var(--border); overflow-y: auto; background: var(--panel); }
+  .pr-item { padding: 11px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .pr-item:hover { background: var(--panel-2); }
+  .pr-item.active { background: var(--panel-2); box-shadow: inset 3px 0 0 var(--accent); }
+  .pr-item .num { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  .pr-item .title { font-weight: 500; margin: 2px 0; }
+  .pr-item .meta { color: var(--muted); font-size: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-size: 11px; padding: 1px 6px; border-radius: 10px; border: 1px solid var(--border); }
+  .pill.draft { color: #c9a227; }
+  .pill.approved { color: #3fb950; }
+  .pill.changes { color: #f85149; }
+
+  .main { overflow-y: auto; padding: 0 0 240px; position: relative; }
+  .pr-head { padding: 18px 24px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 10; }
+  .pr-head h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; }
+  .pr-head .sub { color: var(--muted); font-size: 13px; font-family: var(--mono); }
+  .pr-body { padding: 16px 24px; color: var(--muted); border-bottom: 1px solid var(--border); white-space: pre-wrap; }
+
+  .file { margin: 18px 24px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .file-head {
+    display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 13px; cursor: pointer; position: sticky; top: 64px; z-index: 5;
+  }
+  .file-head .path { font-weight: 600; }
+  .file-head .tag { font-size: 11px; padding: 1px 7px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); }
+  .file-head .tag.added { color: #3fb950; border-color: var(--add-gutter); }
+  .file-head .stat-add { color: #3fb950; }
+  .file-head .stat-del { color: #f85149; }
+  .file.collapsed .diff-body { display: none; }
+  .chev { transition: transform .15s; color: var(--muted); }
+  .file.collapsed .chev { transform: rotate(-90deg); }
+
+  table.diff { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12.5px; }
+  table.diff td { padding: 0 8px; vertical-align: top; white-space: pre-wrap; word-break: break-word; }
+  .gutter {
+    width: 1%; min-width: 44px; text-align: right; color: var(--muted);
+    user-select: none; background: var(--panel); border-right: 1px solid var(--border);
+    cursor: pointer; padding: 0 8px; font-size: 11.5px;
+  }
+  .gutter:hover { color: var(--accent); }
+  tr.add td.code { background: var(--add-bg); }
+  tr.add td.gutter-r { box-shadow: inset 2px 0 0 var(--add-gutter); }
+  tr.del td.code { background: var(--del-bg); }
+  tr.del td.gutter-r { box-shadow: inset 2px 0 0 var(--del-gutter); }
+  tr.hunk td { background: var(--hunk); color: var(--muted); padding: 3px 8px; }
+  tr.selected td.code { background: var(--sel); }
+  tr.selected td.gutter-r { box-shadow: inset 2px 0 0 var(--sel-edge); }
+  tr.sel-start td.code { box-shadow: inset 0 1px 0 var(--sel-edge); }
+  tr.sel-end td.code { box-shadow: inset 0 -1px 0 var(--sel-edge); }
+  .code .sign { color: var(--muted); }
+
+  /* inline existing comment row */
+  tr.comment-row td { padding: 0; }
+  .inline-comment {
+    margin: 4px 0; background: var(--panel-2); border: 1px solid var(--border);
+    border-left: 2px solid var(--accent); border-radius: 6px; padding: 8px 12px;
+    font-family: var(--sans); font-size: 13px; white-space: pre-wrap;
+  }
+  .inline-comment .who { color: var(--accent); font-weight: 600; font-size: 12px; margin-bottom: 3px; }
+
+  /* comment composer popover */
+  .composer {
+    position: fixed; z-index: 50; width: 440px; max-width: 92vw;
+    background: var(--panel-2); border: 1px solid var(--accent); border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.5); padding: 12px;
+  }
+  .composer .ctx { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .composer textarea {
+    width: 100%; min-height: 78px; resize: vertical; background: var(--bg);
+    color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px; font-family: var(--mono); font-size: 13px;
+  }
+  .composer .row { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+  .composer .row .spacer { flex: 1; }
+  .composer .hint { color: var(--muted); font-size: 12px; }
+
+  /* pending review tray */
+  .tray {
+    position: fixed; bottom: 0; left: 300px; right: 0; z-index: 40;
+    background: var(--panel); border-top: 1px solid var(--border);
+    padding: 12px 24px; display: none;
+  }
+  .tray.show { display: block; }
+  .tray h3 { margin: 0 0 8px; font-size: 13px; }
+  .tray .pending { font-size: 12px; color: var(--muted); margin-bottom: 8px; font-family: var(--mono); }
+  .tray .pending div { padding: 2px 0; }
+  .tray textarea {
+    width: 100%; min-height: 50px; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-family: var(--sans); font-size: 13px;
+  }
+  .tray .actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .tray .actions .spacer { flex: 1; }
+
+  .empty { color: var(--muted); padding: 60px 24px; text-align: center; }
+  .toast {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 16px; z-index: 100; font-size: 13px;
+  }
+  .toast.err { border-color: #f85149; color: #f85149; }
+  kbd { font-family: var(--mono); font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>PR Viewer</h1>
+  <span class="repo" id="repoLabel">—</span>
+  <div class="spacer"></div>
+  <span class="hint" style="color:var(--muted);font-size:12px">drag the gutter to select lines · <kbd>shift</kbd>+click to extend</span>
+</header>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar"><div class="empty">Loading PRs…</div></aside>
+  <section class="main" id="main"><div class="empty">Select a pull request.</div></section>
+</div>
+
+<div class="tray" id="tray">
+  <h3>Pending review</h3>
+  <div class="pending" id="pendingList"></div>
+  <textarea id="reviewBody" placeholder="Overall review summary (optional)"></textarea>
+  <div class="actions">
+    <button id="clearReview">Discard</button>
+    <div class="spacer"></div>
+    <button class="primary" id="submitComment">Submit comments</button>
+    <button id="submitApprove">Approve</button>
+    <button class="danger" id="submitChanges">Request changes</button>
+  </div>
+</div>
+
+<script>
+const state = {
+  prs: [], current: null, repo: null, commitId: null,
+  files: [], pending: [], // pending: {path, side, start_line, line, body}
+};
+
+const $ = (s, r=document) => r.querySelector(s);
+const el = (tag, props={}, ...kids) => {
+  const n = document.createElement(tag);
+  Object.assign(n, props);
+  for (const k of kids) n.append(k);
+  return n;
+};
+function toast(msg, isErr=false) {
+  const t = el("div", { className: "toast" + (isErr ? " err" : ""), textContent: msg });
+  document.body.append(t);
+  setTimeout(() => t.remove(), isErr ? 5000 : 2500);
+}
+
+// --- load PR list ----------------------------------------------------------
+async function loadPRs() {
+  const res = await fetch("/api/prs");
+  const data = await res.json();
+  if (!res.ok) { $("#sidebar").innerHTML = ""; $("#sidebar").append(el("div",{className:"empty",textContent:data.error||"Failed to load"})); return; }
+  state.prs = data;
+  renderSidebar();
+}
+function renderSidebar() {
+  const sb = $("#sidebar"); sb.innerHTML = "";
+  if (!state.prs.length) { sb.append(el("div",{className:"empty",textContent:"No open PRs."})); return; }
+  for (const pr of state.prs) {
+    const item = el("div", { className: "pr-item" + (state.current===pr.number?" active":"") });
+    item.append(el("div",{className:"num",textContent:"#"+pr.number}));
+    item.append(el("div",{className:"title",textContent:pr.title}));
+    const meta = el("div",{className:"meta"});
+    meta.append(el("span",{textContent:"@"+(pr.author?.login||"?")}));
+    meta.append(el("span",{className:"stat-add",textContent:"+"+pr.additions, style:"color:#3fb950"}));
+    meta.append(el("span",{className:"stat-del",textContent:"−"+pr.deletions, style:"color:#f85149"}));
+    if (pr.isDraft) meta.append(el("span",{className:"pill draft",textContent:"draft"}));
+    if (pr.reviewDecision==="APPROVED") meta.append(el("span",{className:"pill approved",textContent:"approved"}));
+    if (pr.reviewDecision==="CHANGES_REQUESTED") meta.append(el("span",{className:"pill changes",textContent:"changes"}));
+    meta.append(el("span",{textContent:pr.changedFiles+" files"}));
+    item.append(meta);
+    item.onclick = () => openPR(pr.number);
+    sb.append(item);
+  }
+}
+
+// --- open a PR -------------------------------------------------------------
+async function openPR(num) {
+  state.current = num; state.pending = []; renderTray();
+  renderSidebar();
+  $("#main").innerHTML = '<div class="empty">Loading diff…</div>';
+  const res = await fetch("/api/prs/"+num);
+  const data = await res.json();
+  if (!res.ok) { $("#main").innerHTML=""; $("#main").append(el("div",{className:"empty",textContent:data.error})); return; }
+  state.repo = data.repo; state.commitId = data.meta.headRefOid;
+  $("#repoLabel").textContent = data.repo;
+  state.files = parseDiff(data.diff);
+  attachComments(data.comments);
+  renderPR(data.meta);
+}
+
+// group existing review comments by path+line
+function attachComments(comments) {
+  state.commentsByLoc = {};
+  for (const c of comments || []) {
+    if (!c.path || c.line == null) continue;
+    const key = c.path + ":" + c.line;
+    (state.commentsByLoc[key] ||= []).push(c);
+  }
+}
+
+// --- unified diff parser ---------------------------------------------------
+// Returns [{path, status, additions, deletions, hunks:[{header, rows:[...]}]}]
+// row: {type:'add'|'del'|'ctx'|'hunk', text, oldNo, newNo}
+function parseDiff(diff) {
+  const files = []; let cur = null, hunk = null;
+  let oldNo = 0, newNo = 0;
+  const lines = diff.split("\n");
+  for (let i=0;i<lines.length;i++) {
+    const ln = lines[i];
+    if (ln.startsWith("diff --git")) {
+      cur = { path:"", status:"modified", additions:0, deletions:0, hunks:[], isNew:false, isDelete:false };
+      files.push(cur); hunk = null;
+      continue;
+    }
+    if (!cur) continue;
+    if (ln.startsWith("new file")) cur.isNew = true;
+    else if (ln.startsWith("deleted file")) cur.isDelete = true;
+    else if (ln.startsWith("rename ")) cur.status = "renamed";
+    else if (ln.startsWith("+++ ")) {
+      const p = ln.slice(4).replace(/^b\//,"");
+      if (p !== "/dev/null") cur.path = p;
+    }
+    else if (ln.startsWith("--- ")) {
+      const p = ln.slice(4).replace(/^a\//,"");
+      if (!cur.path && p !== "/dev/null") cur.path = p;
+    }
+    else if (ln.startsWith("@@")) {
+      const m = ln.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      oldNo = m ? +m[1] : 0; newNo = m ? +m[2] : 0;
+      hunk = { header: ln, rows: [] };
+      cur.hunks.push(hunk);
+      hunk.rows.push({ type:"hunk", text: ln });
+    }
+    else if (hunk) {
+      if (ln.startsWith("+")) { hunk.rows.push({type:"add", text:ln.slice(1), newNo}); cur.additions++; newNo++; }
+      else if (ln.startsWith("-")) { hunk.rows.push({type:"del", text:ln.slice(1), oldNo}); cur.deletions++; oldNo++; }
+      else if (ln.startsWith("\\")) { /* no newline marker */ }
+      else { hunk.rows.push({type:"ctx", text:ln.slice(1), oldNo, newNo}); oldNo++; newNo++; }
+    }
+  }
+  for (const f of files) {
+    if (f.isNew) f.status = "added";
+    else if (f.isDelete) f.status = "deleted";
+  }
+  return files;
+}
+
+// --- render PR + diff ------------------------------------------------------
+function renderPR(meta) {
+  const main = $("#main"); main.innerHTML = "";
+  const head = el("div",{className:"pr-head"});
+  head.append(el("h2",{textContent:"#"+meta.number+"  "+meta.title}));
+  head.append(el("div",{className:"sub",textContent:`${meta.headRefName} → ${meta.baseRefName} · ${meta.changedFiles} files · +${meta.additions} −${meta.deletions}`}));
+  main.append(head);
+  if (meta.body) main.append(el("div",{className:"pr-body",textContent:meta.body}));
+
+  for (const f of state.files) main.append(renderFile(f));
+}
+
+function renderFile(f) {
+  const isAddedFull = f.status === "added";
+  const wrap = el("div",{className:"file"});
+  const fh = el("div",{className:"file-head"});
+  fh.append(el("span",{className:"chev",textContent:"▾"}));
+  fh.append(el("span",{className:"path",textContent:f.path||"(unknown)"}));
+  const tag = el("span",{className:"tag"+(isAddedFull?" added":""),textContent:f.status});
+  fh.append(tag);
+  fh.append(el("span",{className:"spacer",style:"flex:1"}));
+  fh.append(el("span",{className:"stat-add",textContent:"+"+f.additions}));
+  fh.append(el("span",{className:"stat-del",textContent:"−"+f.deletions}));
+  fh.onclick = () => wrap.classList.toggle("collapsed");
+  wrap.append(fh);
+
+  const body = el("div",{className:"diff-body"});
+  const table = el("table",{className:"diff"});
+
+  for (const h of f.hunks) {
+    for (const r of h.rows) {
+      if (r.type === "hunk") {
+        // For brand-new files the "before" column is meaningless — skip the
+        // hunk header noise and reclaim the space (your "compare to nothing" gripe).
+        if (isAddedFull) continue;
+        const tr = el("tr",{className:"hunk"});
+        tr.append(el("td",{colSpan:3,textContent:r.text}));
+        table.append(tr);
+        continue;
+      }
+      const tr = el("tr",{className:r.type==="add"?"add":r.type==="del"?"del":""});
+      // old gutter — hidden entirely for added files so we don't waste half the row
+      if (!isAddedFull) {
+        const g1 = el("td",{className:"gutter",textContent:r.type==="add"?"":String(r.oldNo??"")});
+        tr.append(g1);
+      }
+      const g2 = el("td",{className:"gutter gutter-r",textContent:r.type==="del"?"":String(r.newNo??"")});
+      // line selection lives on the NEW-side gutter (RIGHT side comments)
+      if (r.newNo != null && r.type !== "del") {
+        g2.dataset.line = r.newNo; g2.dataset.path = f.path;
+        wireGutter(g2, f.path, r.newNo, tr);
+      }
+      tr.append(g2);
+      const code = el("td",{className:"code"});
+      const sign = r.type==="add"?"+":r.type==="del"?"-":" ";
+      code.append(el("span",{className:"sign",textContent:sign}));
+      code.append(document.createTextNode(r.text));
+      tr.append(code);
+      tr.dataset.line = r.newNo ?? "";
+      tr.dataset.path = f.path;
+      table.append(tr);
+
+      // existing comments anchored to this line
+      const key = f.path + ":" + r.newNo;
+      const cs = state.commentsByLoc?.[key];
+      if (cs) for (const c of cs) {
+        const crow = el("tr",{className:"comment-row"});
+        const td = el("td",{colSpan:isAddedFull?2:3});
+        const box = el("div",{className:"inline-comment"});
+        box.append(el("div",{className:"who",textContent:"@"+(c.user?.login||"?")}));
+        box.append(document.createTextNode(c.body||""));
+        td.append(box); crow.append(td); table.append(crow);
+      }
+    }
+  }
+  body.append(table); wrap.append(body);
+  return wrap;
+}
+
+// --- line selection (drag + shift-click) -----------------------------------
+let dragging = false, dragPath = null, dragStart = null;
+
+function wireGutter(g, path, line, tr) {
+  g.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    if (e.shiftKey && dragStart && dragPath === path) {
+      finishSelection(path, dragStart, line);
+      return;
+    }
+    dragging = true; dragPath = path; dragStart = line;
+    clearSelectionHighlight();
+    highlightRange(path, line, line);
+  });
+  g.addEventListener("mouseenter", () => {
+    if (dragging && dragPath === path) highlightRange(path, dragStart, line);
+  });
+  g.addEventListener("mouseup", () => {
+    if (dragging && dragPath === path) { dragging=false; finishSelection(path, dragStart, line); }
+  });
+}
+document.addEventListener("mouseup", () => { dragging = false; });
+
+function clearSelectionHighlight() {
+  document.querySelectorAll("tr.selected,tr.sel-start,tr.sel-end")
+    .forEach(t => t.classList.remove("selected","sel-start","sel-end"));
+}
+function highlightRange(path, a, b) {
+  clearSelectionHighlight();
+  const lo = Math.min(a,b), hi = Math.max(a,b);
+  document.querySelectorAll(`tr[data-path="${cssEsc(path)}"]`).forEach(tr => {
+    const l = +tr.dataset.line;
+    if (l>=lo && l<=hi) {
+      tr.classList.add("selected");
+      if (l===lo) tr.classList.add("sel-start");
+      if (l===hi) tr.classList.add("sel-end");
+    }
+  });
+}
+function cssEsc(s){ return (window.CSS&&CSS.escape)?CSS.escape(s):s.replace(/["\\]/g,"\\$&"); }
+
+function finishSelection(path, a, b) {
+  const start = Math.min(a,b), end = Math.max(a,b);
+  openComposer(path, start, end);
+}
+
+// --- comment composer ------------------------------------------------------
+let composerEl = null;
+function openComposer(path, startLine, endLine) {
+  closeComposer();
+  const c = el("div",{className:"composer"});
+  const range = startLine===endLine ? `line ${startLine}` : `lines ${startLine}–${endLine}`;
+  c.append(el("div",{className:"ctx",textContent:`${path} · ${range}`}));
+  const ta = el("textarea",{placeholder:"Leave a comment.  Use ```suggestion blocks for code suggestions."});
+  c.append(ta);
+  const row = el("div",{className:"row"});
+  const sg = el("button",{textContent:"Insert suggestion"});
+  sg.onclick = () => {
+    // pull the selected source lines straight from the diff to prefill a suggestion
+    const src = collectLines(path, startLine, endLine);
+    const block = "```suggestion\n"+src+"\n```";
+    ta.value = ta.value ? ta.value+"\n"+block : block;
+    ta.focus();
+  };
+  row.append(sg);
+  row.append(el("span",{className:"spacer",style:"flex:1"}));
+  row.append(el("button",{textContent:"Cancel", onclick: closeComposer}));
+  const add = el("button",{className:"primary",textContent:"Add to review"});
+  add.onclick = () => {
+    if (!ta.value.trim()) { ta.focus(); return; }
+    state.pending.push({
+      path, side:"RIGHT",
+      start_line: startLine, line: endLine,
+      body: ta.value.trim(),
+    });
+    clearSelectionHighlight(); closeComposer(); renderTray();
+    toast("Comment added to review");
+  };
+  row.append(add);
+  c.append(row);
+  document.body.append(c); composerEl = c;
+  positionComposer(c, endLine, path);
+  ta.focus();
+  ta.addEventListener("keydown",(e)=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)) add.click(); if(e.key==="Escape") closeComposer(); });
+}
+function positionComposer(c, line, path) {
+  const tr = document.querySelector(`tr[data-path="${cssEsc(path)}"][data-line="${line}"]`);
+  const r = tr ? tr.getBoundingClientRect() : {bottom: 120, left: 360};
+  let top = r.bottom + 6, left = Math.min(r.left + 40, window.innerWidth - 460);
+  if (top + 200 > window.innerHeight) top = Math.max(60, window.innerHeight - 220);
+  c.style.top = top+"px"; c.style.left = Math.max(12,left)+"px";
+}
+function closeComposer(){ if(composerEl){composerEl.remove();composerEl=null;} }
+function collectLines(path, start, end) {
+  const out = [];
+  for (let l=start;l<=end;l++) {
+    const tr = document.querySelector(`tr[data-path="${cssEsc(path)}"][data-line="${l}"]`);
+    if (tr) { const code = tr.querySelector(".code"); out.push(code.textContent.replace(/^[+\- ]/,"")); }
+  }
+  return out.join("\n");
+}
+
+// --- pending review tray ---------------------------------------------------
+function renderTray() {
+  const tray = $("#tray"), list = $("#pendingList");
+  if (!state.pending.length) { tray.classList.remove("show"); list.innerHTML=""; return; }
+  tray.classList.add("show");
+  list.innerHTML = "";
+  state.pending.forEach((p,i) => {
+    const range = p.start_line===p.line?`L${p.line}`:`L${p.start_line}–${p.line}`;
+    const row = el("div");
+    row.append(el("span",{textContent:`${p.path} ${range}: `}));
+    row.append(el("span",{textContent:p.body.replace(/\n/g," ").slice(0,70), style:"color:var(--text)"}));
+    const del = el("button",{textContent:"✕", style:"padding:0 6px;margin-left:8px",onclick:()=>{state.pending.splice(i,1);renderTray();}});
+    row.append(del);
+    list.append(row);
+  });
+}
+
+async function submitReview(event) {
+  if (event!=="COMMENT" && !confirm(
+    event==="APPROVE" ? "Approve this PR? This submits a formal approval to GitHub."
+    : "Request changes on this PR? This is visible to the author and blocks merge."
+  )) return;
+  const body = $("#reviewBody").value.trim();
+  if (event==="COMMENT" && !state.pending.length && !body) { toast("Nothing to submit",true); return; }
+  const payload = {
+    event, body, repo: state.repo, commit_id: state.commitId,
+    comments: state.pending.map(p => ({
+      path:p.path, side:p.side, line:p.line,
+      start_line: p.start_line!==p.line ? p.start_line : undefined,
+      start_side: p.start_line!==p.line ? p.side : undefined,
+      body:p.body,
+    })),
+  };
+  const res = await fetch(`/api/prs/${state.current}/review`,{
+    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) { toast(data.error||"Submit failed", true); return; }
+  toast("Review submitted ✓");
+  state.pending = []; $("#reviewBody").value=""; renderTray();
+  openPR(state.current); // refresh to show posted comments
+}
+
+$("#submitComment").onclick = () => submitReview("COMMENT");
+$("#submitApprove").onclick = () => submitReview("APPROVE");
+$("#submitChanges").onclick = () => submitReview("REQUEST_CHANGES");
+$("#clearReview").onclick = () => { state.pending=[]; $("#reviewBody").value=""; renderTray(); clearSelectionHighlight(); };
+
+loadPRs();
+</script>
+</body>
+</html>

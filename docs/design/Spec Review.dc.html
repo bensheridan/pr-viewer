@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;450;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  ::selection{background:var(--text3);color:var(--surface);}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:8px;border:2px solid transparent;background-clip:padding-box;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--text3);background-clip:padding-box;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.97);}to{opacity:1;transform:none;}}
+  @keyframes fade{from{opacity:0;}to{opacity:1;}}
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,14px);}to{opacity:1;transform:translate(-50%,0);}}
+</style>
+</helmet>
+<div style="{{ rootStyle }}">
+<div style="height:100vh;display:flex;flex-direction:column;background:var(--bg,#fafbfc);color:var(--text,#1c2024);font-family:var(--sans),system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;">
+
+  <!-- ============ APP BAR ============ -->
+  <header style="height:53px;flex:none;display:flex;align-items:center;gap:13px;padding:0 16px;border-bottom:1px solid var(--border);background:var(--surface);z-index:5;">
+    <div style="display:flex;align-items:center;gap:9px;min-width:0;">
+      <div style="width:22px;height:22px;border-radius:6px;background:var(--accent);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:600;flex:none;">◧</div>
+      <span style="font-size:13px;color:var(--text2);white-space:nowrap;">acme<span style="color:var(--text3);margin:0 2px;">/</span><span style="color:var(--text);font-weight:500;">gateway</span></span>
+      <span style="font-family:var(--mono);font-size:12px;color:var(--text3);background:var(--s2);padding:2px 7px;border-radius:6px;">#142</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;padding:3px 9px 3px 8px;border-radius:999px;border:1px solid {{ statusBorder }};color:{{ statusFg }};background:{{ statusBg }};white-space:nowrap;">
+        <span style="width:6px;height:6px;border-radius:999px;background:{{ statusFg }};"></span>{{ statusLabel }}
+      </span>
+    </div>
+    <div style="flex:1;"></div>
+    <!-- screen switcher -->
+    <div style="display:flex;gap:2px;background:var(--s2);padding:3px;border-radius:var(--radius-sm);">
+      <button onClick="{{ goOverview }}" style="font-family:var(--sans);font-size:12.5px;font-weight:500;padding:6px 13px;border:none;border-radius:calc(var(--radius-sm) - 2px);cursor:pointer;background:{{ ovBg }};color:{{ ovFg }};box-shadow:{{ ovShadow }};transition:all .12s;">Overview</button>
+      <button onClick="{{ goFiles }}" style="font-family:var(--sans);font-size:12.5px;font-weight:500;padding:6px 13px;border:none;border-radius:calc(var(--radius-sm) - 2px);cursor:pointer;background:{{ flBg }};color:{{ flFg }};box-shadow:{{ flShadow }};transition:all .12s;display:flex;align-items:center;gap:7px;">Files &amp; Spec<span style="font-family:var(--mono);font-size:10px;background:var(--accent);color:var(--accent-text);padding:1px 5px;border-radius:5px;">7</span></button>
+      <button onClick="{{ goReview }}" style="font-family:var(--sans);font-size:12.5px;font-weight:500;padding:6px 13px;border:none;border-radius:calc(var(--radius-sm) - 2px);cursor:pointer;background:{{ rvBg }};color:{{ rvFg }};box-shadow:{{ rvShadow }};transition:all .12s;">Review</button>
+    </div>
+    <div style="width:1px;height:22px;background:var(--border);"></div>
+    <!-- style take -->
+    <div style="display:flex;gap:2px;background:var(--s2);padding:3px;border-radius:var(--radius-sm);">
+      <button onClick="{{ takeStructured }}" title="Structured" style="font-family:var(--mono);font-size:11px;padding:5px 9px;border:none;border-radius:calc(var(--radius-sm) - 2px);cursor:pointer;background:{{ tkStructuredBg }};color:{{ tkStructuredFg }};">Structured</button>
+      <button onClick="{{ takeSoft }}" title="Soft" style="font-family:var(--mono);font-size:11px;padding:5px 9px;border:none;border-radius:calc(var(--radius-sm) - 2px);cursor:pointer;background:{{ tkSoftBg }};color:{{ tkSoftFg }};">Soft</button>
+      <button onClick="{{ takeEditor }}" title="Editor" style="font-family:var(--mono);font-size:11px;padding:5px 9px;border:none;border-radius:calc(var(--radius-sm) - 2px);cursor:pointer;background:{{ tkEditorBg }};color:{{ tkEditorFg }};">Editor</button>
+    </div>
+    <button onClick="{{ toggleTheme }}" title="Toggle theme" style="width:32px;height:32px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text2);cursor:pointer;" style-hover="background:var(--s2);color:var(--text);">{{ themeIcon }}</button>
+  </header>
+
+  <!-- ============ BODY ============ -->
+  <main style="height:calc(100vh - 53px);flex:none;display:flex;overflow:hidden;">
+
+    <!-- ---------- OVERVIEW ---------- -->
+    <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+    <div data-screen-label="Overview" style="flex:1;overflow:auto;">
+      <div style="max-width:1080px;margin:0 auto;padding:30px 32px 60px;">
+        <!-- PR header -->
+        <div style="display:flex;align-items:flex-start;gap:16px;">
+          <div style="flex:1;min-width:0;">
+            <h1 style="margin:0;font-size:25px;font-weight:600;letter-spacing:-.012em;line-height:1.22;">Add per-workspace API rate limiting</h1>
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:13px;font-size:13px;color:var(--text2);">
+              <span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:19px;height:19px;border-radius:999px;background:var(--s3);color:var(--text2);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;">DK</span><span style="color:var(--text);font-weight:500;">dana-k</span></span>
+              <span>wants to merge <strong style="color:var(--text);font-weight:600;">9 commits</strong> into</span>
+              <span style="font-family:var(--mono);font-size:12px;background:var(--s2);color:var(--text2);padding:2px 8px;border-radius:6px;">main</span>
+              <span>from</span>
+              <span style="font-family:var(--mono);font-size:12px;background:var(--s2);color:var(--text2);padding:2px 8px;border-radius:6px;">feat/008-rate-limiting</span>
+              <span style="color:var(--text3);">· opened 2 days ago</span>
+            </div>
+          </div>
+          <button onClick="{{ goReview }}" style="flex:none;font-family:var(--sans);font-size:13px;font-weight:560;padding:9px 16px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:var(--accent-text);cursor:pointer;box-shadow:var(--shadow);" style-hover="filter:brightness(1.08);">Review changes</button>
+        </div>
+
+        <!-- tab strip -->
+        <div style="display:flex;gap:1px;margin-top:24px;border-bottom:1px solid var(--border);">
+          <div style="padding:10px 4px;margin-right:20px;font-size:13px;font-weight:560;color:var(--text);border-bottom:2px solid var(--accent);margin-bottom:-1px;">Conversation</div>
+          <div style="padding:10px 4px;margin-right:20px;font-size:13px;color:var(--text2);cursor:pointer;" style-hover="color:var(--text);">Commits <span style="color:var(--text3);">9</span></div>
+          <div style="padding:10px 4px;margin-right:20px;font-size:13px;color:var(--text2);cursor:pointer;" style-hover="color:var(--text);">Checks <span style="color:var(--ok);">12</span></div>
+          <div onClick="{{ goFiles }}" style="padding:10px 4px;font-size:13px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:6px;" style-hover="color:var(--text);">Files changed <span style="font-family:var(--mono);font-size:11px;background:var(--s2);padding:1px 6px;border-radius:5px;">7</span></div>
+        </div>
+
+        <!-- two columns -->
+        <div style="display:grid;grid-template-columns:1fr 296px;gap:30px;margin-top:24px;align-items:start;">
+          <!-- left timeline -->
+          <div style="min-width:0;display:flex;flex-direction:column;gap:18px;">
+            <!-- description card -->
+            <div style="background:var(--surface);border:1px solid var(--card-border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;">
+              <div style="display:flex;align-items:center;gap:9px;padding:11px var(--pad);border-bottom:1px solid var(--border);background:var(--panel-hdr);">
+                <span style="width:21px;height:21px;border-radius:999px;background:var(--s3);color:var(--text2);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;">DK</span>
+                <span style="font-size:13px;"><strong style="font-weight:600;">dana-k</strong> <span style="color:var(--text3);">· 2 days ago</span></span>
+              </div>
+              <div style="padding:var(--pad);font-size:13.5px;line-height:1.62;color:var(--text2);">
+                <p style="margin:0 0 12px;">One noisy tenant can currently exhaust gateway capacity for everyone. This adds per-workspace rate limiting at the gateway, backed by Redis, with sane per-route defaults and clear <span style="font-family:var(--mono);font-size:12px;background:var(--s2);padding:1px 5px;border-radius:5px;color:var(--text);">429 + Retry-After</span> responses.</p>
+                <p style="margin:0 0 6px;color:var(--text);font-weight:560;">This PR follows the Spec-Kit flow:</p>
+                <ul style="margin:0;padding-left:20px;">
+                  <li style="margin-bottom:3px;">Spec, plan and tasks live under <span style="font-family:var(--mono);font-size:12px;">specs/008-rate-limiting/</span></li>
+                  <li>Implementation maps 1:1 to <span style="font-family:var(--mono);font-size:12px;">tasks.md</span> (6 of 9 done)</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- spec-kit callout -->
+            <div style="background:var(--surface);border:1px solid var(--card-border);border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--pad);display:flex;gap:13px;align-items:flex-start;">
+              <div style="width:34px;height:34px;flex:none;border-radius:var(--radius-sm);background:var(--accent);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.02em;">SPEC</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13.5px;font-weight:600;">Spec-Kit detected in this PR</div>
+                <div style="font-size:12.5px;color:var(--text2);line-height:1.55;margin-top:3px;">3 specification files were found. They're rendered beside the diff — not buried as changed files.</div>
+                <button onClick="{{ goFiles }}" style="margin-top:11px;font-family:var(--sans);font-size:12px;font-weight:550;padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:6px;" style-hover="background:var(--s2);">Open spec &amp; diff <span style="font-family:var(--mono);">→</span></button>
+              </div>
+            </div>
+
+            <!-- timeline events -->
+            <div style="position:relative;padding-left:30px;">
+              <div style="position:absolute;left:10px;top:6px;bottom:6px;width:1.5px;background:var(--border);"></div>
+              <sc-for list="{{ timeline }}" as="ev" hint-placeholder-count="4">
+                <div style="position:relative;padding:7px 0 14px;">
+                  <div style="position:absolute;left:-26px;top:6px;width:21px;height:21px;border-radius:999px;background:var(--surface);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;color:{{ ev.iconColor }};">{{ ev.icon }}</div>
+                  <div style="font-size:13px;line-height:1.5;color:var(--text2);"><strong style="color:var(--text);font-weight:600;">{{ ev.who }}</strong> {{ ev.text }} <span style="color:var(--text3);">· {{ ev.when }}</span></div>
+                  <sc-if value="{{ ev.hasBody }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:9px;background:var(--surface);border:1px solid var(--card-border);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:11px 13px;font-size:13px;color:var(--text2);line-height:1.55;">{{ ev.body }}</div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- right sidebar -->
+          <div style="display:flex;flex-direction:column;gap:1px;position:sticky;top:0;">
+            <!-- reviewers -->
+            <div style="padding:4px 2px 14px;border-bottom:1px solid var(--border);margin-bottom:14px;">
+              <div style="font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-bottom:11px;">Reviewers</div>
+              <sc-for list="{{ reviewers }}" as="r" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px;">
+                  <span style="width:22px;height:22px;border-radius:999px;background:var(--s3);color:var(--text2);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none;">{{ r.initials }}</span>
+                  <span style="flex:1;font-size:13px;color:var(--text);">{{ r.name }}</span>
+                  <span style="font-size:11px;font-weight:550;color:{{ r.color }};display:inline-flex;align-items:center;gap:5px;">{{ r.icon }}{{ r.status }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <!-- spec-kit files -->
+            <div style="padding:0 2px 16px;border-bottom:1px solid var(--border);margin-bottom:14px;">
+              <div style="font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-bottom:11px;display:flex;align-items:center;gap:7px;">Spec-Kit <span style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:0;text-transform:none;background:var(--accent);color:var(--accent-text);padding:1px 5px;border-radius:5px;">3</span></div>
+              <sc-for list="{{ specFiles }}" as="s" hint-placeholder-count="3">
+                <div onClick="{{ s.openHere }}" style="display:flex;align-items:center;gap:9px;padding:7px 8px;margin:0 -8px;border-radius:var(--radius-sm);cursor:pointer;" style-hover="background:var(--s2);">
+                  <span style="font-family:var(--mono);font-size:11px;color:var(--text3);flex:none;">{ }</span>
+                  <span style="flex:1;font-family:var(--mono);font-size:12px;color:var(--text);">{{ s.label }}</span>
+                  <span style="font-size:11px;color:var(--text3);">{{ s.metaShort }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <!-- checks -->
+            <div style="padding:0 2px;">
+              <div style="font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-bottom:11px;">Checks</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);"><span style="color:var(--ok);">{{ checkIcon }}</span> All 12 checks passed</div>
+              <div style="font-size:12px;color:var(--text3);margin-top:5px;padding-left:20px;">build · test · lint · typecheck</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ---------- FILES & SPEC (HERO) ---------- -->
+    <sc-if value="{{ isFiles }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Files and Spec" style="flex:1;display:flex;min-width:0;">
+
+      <!-- file list -->
+      <aside style="width:262px;flex:none;border-right:1px solid var(--border);background:var(--surface);overflow:auto;padding:12px 10px;">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);padding:6px 8px 9px;">Specification <span style="color:var(--accent-2);font-family:var(--mono);">· rendered →</span></div>
+        <sc-for list="{{ specFiles }}" as="s" hint-placeholder-count="3">
+          <div onClick="{{ s.select }}" style="display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:var(--radius-sm);cursor:pointer;background:{{ s.rowBg }};" style-hover="background:var(--s2);">
+            <span style="width:17px;height:17px;flex:none;border-radius:4px;background:var(--accent);color:var(--accent-text);font-family:var(--mono);font-size:8px;font-weight:600;display:flex;align-items:center;justify-content:center;">M↓</span>
+            <span style="flex:1;font-family:var(--mono);font-size:12px;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ s.label }}</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">{{ s.metaShort }}</span>
+          </div>
+        </sc-for>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);padding:18px 8px 9px;">Code <span style="color:var(--text3);font-family:var(--mono);">4</span></div>
+        <sc-for list="{{ codeFiles }}" as="f" hint-placeholder-count="4">
+          <div onClick="{{ f.select }}" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--radius-sm);cursor:pointer;background:{{ f.rowBg }};" style-hover="background:var(--s2);">
+            <span style="width:5px;height:5px;flex:none;border-radius:999px;background:{{ f.dot }};"></span>
+            <span style="flex:1;font-family:var(--mono);font-size:12px;color:{{ f.nameColor }};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left;">{{ f.label }}</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--add-stat);flex:none;">{{ f.addStat }}</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--del-stat);flex:none;">{{ f.delStat }}</span>
+          </div>
+        </sc-for>
+      </aside>
+
+      <!-- center: diff -->
+      <section style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;">
+        <!-- diff toolbar -->
+        <div style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--border);background:var(--surface);">
+          <span style="font-family:var(--mono);font-size:12.5px;color:var(--text);">{{ selPath }}</span>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--text3);">{{ selStat }}</span>
+          <div style="flex:1;"></div>
+          <div style="display:flex;gap:2px;background:var(--s2);padding:3px;border-radius:var(--radius-sm);">
+            <button onClick="{{ setSplit }}" style="font-family:var(--sans);font-size:11.5px;font-weight:500;padding:5px 11px;border:none;border-radius:calc(var(--radius-sm) - 2px);cursor:pointer;background:{{ splitBg }};color:{{ splitFg }};box-shadow:{{ splitShadow }};">Split</button>
+            <button onClick="{{ setUnified }}" style="font-family:var(--sans);font-size:11.5px;font-weight:500;padding:5px 11px;border:none;border-radius:calc(var(--radius-sm) - 2px);cursor:pointer;background:{{ unifiedBg }};color:{{ unifiedFg }};box-shadow:{{ unifiedShadow }};">Unified</button>
+          </div>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text2);cursor:pointer;user-select:none;">
+            <span onClick="{{ toggleViewed }}" style="width:16px;height:16px;border-radius:5px;border:1px solid var(--border2);background:{{ viewedBox }};display:flex;align-items:center;justify-content:center;color:var(--accent-text);">{{ viewedCheck }}</span>
+            Viewed
+          </label>
+        </div>
+        <!-- diff body -->
+        <div style="flex:1;overflow:auto;background:var(--surface);">
+          <sc-if value="{{ useSplit }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ splitRows }}" as="row" hint-placeholder-count="10">
+              <sc-if value="{{ row.isHunk }}" hint-placeholder-val="{{ false }}">
+                <div style="background:var(--s2);color:var(--text3);font-family:var(--mono);font-size:11px;padding:4px 14px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">{{ row.text }}</div>
+              </sc-if>
+              <sc-if value="{{ row.isLine }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;min-height:var(--row-h);">
+                  <div style="flex:1 1 50%;min-width:0;display:flex;background:{{ row.left.bg }};border-right:1px solid var(--border);">
+                    <span style="width:44px;flex:none;text-align:right;padding-right:9px;color:var(--text3);font-family:var(--mono);font-size:11px;line-height:var(--row-h);user-select:none;">{{ row.left.no }}</span>
+                    <span style="width:15px;flex:none;text-align:center;color:var(--text3);font-family:var(--mono);font-size:12px;line-height:var(--row-h);">{{ row.left.sign }}</span>
+                    <span style="flex:1;white-space:pre;overflow:hidden;font-family:var(--mono);font-size:12.5px;line-height:var(--row-h);padding-right:10px;color:var(--text);">{{ row.left.text }}</span>
+                  </div>
+                  <div style="flex:1 1 50%;min-width:0;display:flex;background:{{ row.right.bg }};">
+                    <span style="width:44px;flex:none;text-align:right;padding-right:9px;color:var(--text3);font-family:var(--mono);font-size:11px;line-height:var(--row-h);user-select:none;">{{ row.right.no }}</span>
+                    <span style="width:15px;flex:none;text-align:center;color:var(--text3);font-family:var(--mono);font-size:12px;line-height:var(--row-h);">{{ row.right.sign }}</span>
+                    <span style="flex:1;white-space:pre;overflow:hidden;font-family:var(--mono);font-size:12.5px;line-height:var(--row-h);padding-right:10px;color:var(--text);">{{ row.right.text }}</span>
+                  </div>
+                </div>
+              </sc-if>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ useUnified }}" hint-placeholder-val="{{ false }}">
+            <sc-for list="{{ unifiedRows }}" as="row" hint-placeholder-count="10">
+              <sc-if value="{{ row.isHunk }}" hint-placeholder-val="{{ false }}">
+                <div style="background:var(--s2);color:var(--text3);font-family:var(--mono);font-size:11px;padding:4px 14px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">{{ row.text }}</div>
+              </sc-if>
+              <sc-if value="{{ row.isLine }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;min-height:var(--row-h);background:{{ row.bg }};">
+                  <span style="width:46px;flex:none;text-align:right;padding-right:8px;color:var(--text3);font-family:var(--mono);font-size:11px;line-height:var(--row-h);user-select:none;">{{ row.oldNo }}</span>
+                  <span style="width:46px;flex:none;text-align:right;padding-right:8px;color:var(--text3);font-family:var(--mono);font-size:11px;line-height:var(--row-h);user-select:none;border-right:1px solid var(--border);">{{ row.newNo }}</span>
+                  <span style="width:18px;flex:none;text-align:center;color:var(--text3);font-family:var(--mono);font-size:12px;line-height:var(--row-h);">{{ row.sign }}</span>
+                  <span style="flex:1;white-space:pre;overflow:hidden;font-family:var(--mono);font-size:12.5px;line-height:var(--row-h);padding-right:10px;color:var(--text);">{{ row.text }}</span>
+                </div>
+              </sc-if>
+            </sc-for>
+          </sc-if>
+        </div>
+      </section>
+
+      <!-- pinned spec panel -->
+      <aside style="width:392px;flex:none;border-left:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;overflow:hidden;">
+        <div style="height:46px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--border);background:var(--panel-hdr);">
+          <span style="width:18px;height:18px;flex:none;border-radius:5px;background:var(--accent);color:var(--accent-text);font-family:var(--mono);font-size:8px;font-weight:600;display:flex;align-items:center;justify-content:center;">SPEC</span>
+          <span style="font-size:12.5px;font-weight:600;flex:1;">Specification</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">pinned</span>
+        </div>
+        <!-- spec tabs -->
+        <div style="flex:none;display:flex;gap:2px;padding:8px 10px;border-bottom:1px solid var(--border);">
+          <button onClick="{{ tabSpec }}" style="flex:1;font-family:var(--mono);font-size:11.5px;font-weight:500;padding:6px 0;border:none;border-radius:var(--radius-sm);cursor:pointer;background:{{ tabSpecBg }};color:{{ tabSpecFg }};">spec.md</button>
+          <button onClick="{{ tabPlan }}" style="flex:1;font-family:var(--mono);font-size:11.5px;font-weight:500;padding:6px 0;border:none;border-radius:var(--radius-sm);cursor:pointer;background:{{ tabPlanBg }};color:{{ tabPlanFg }};">plan.md</button>
+          <button onClick="{{ tabTasks }}" style="flex:1;font-family:var(--mono);font-size:11.5px;font-weight:500;padding:6px 0;border:none;border-radius:var(--radius-sm);cursor:pointer;background:{{ tabTasksBg }};color:{{ tabTasksFg }};display:flex;align-items:center;justify-content:center;gap:5px;">tasks.md<span style="font-family:var(--mono);font-size:9px;background:var(--accent);color:var(--accent-text);padding:1px 5px;border-radius:5px;">{{ tasksDone }}/{{ tasksTotal }}</span></button>
+        </div>
+        <div style="flex:1;overflow:auto;padding:18px 18px 40px;">
+          <!-- SPEC tab -->
+          <sc-if value="{{ showSpec }}" hint-placeholder-val="{{ true }}">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:14px;display:flex;align-items:center;gap:8px;">specs/008-rate-limiting/spec.md <span style="color:var(--add-stat);">+38</span><span style="color:var(--del-stat);">−2</span></div>
+            <h2 style="margin:0 0 4px;font-size:17px;font-weight:600;letter-spacing:-.01em;">Per-Workspace API Rate Limiting</h2>
+            <div style="font-size:12px;color:var(--text3);margin-bottom:18px;">Feature 008 · status: <span style="color:var(--ok);font-weight:550;">approved</span></div>
+            <h3 style="margin:18px 0 7px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">Why</h3>
+            <p style="margin:0;font-size:13.5px;line-height:1.62;color:var(--text2);">Workspaces share gateway infrastructure. A single high-volume tenant can currently exhaust capacity and degrade latency for every other workspace. We need per-tenant isolation at the edge.</p>
+            <h3 style="margin:20px 0 7px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">User stories</h3>
+            <ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.62;color:var(--text2);">
+              <li style="margin-bottom:7px;">As an <strong style="color:var(--text);font-weight:560;">operator</strong>, I want per-workspace limits so one tenant can't starve others.</li>
+              <li>As a <strong style="color:var(--text);font-weight:560;">client developer</strong>, I want clear 429 + Retry-After responses so I can back off correctly.</li>
+            </ul>
+            <h3 style="margin:20px 0 7px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">Acceptance criteria</h3>
+            <ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.62;color:var(--text2);">
+              <li style="margin-bottom:7px;">Requests past the limit return <span style="font-family:var(--mono);font-size:12px;background:var(--s2);padding:1px 5px;border-radius:4px;color:var(--text);">429</span> with <span style="font-family:var(--mono);font-size:12px;background:var(--s2);padding:1px 5px;border-radius:4px;color:var(--text);">Retry-After</span>.</li>
+              <li style="margin-bottom:7px;background:var(--add-bg);margin-left:-8px;padding:3px 8px;border-radius:5px;border-left:2px solid var(--add-stat);">Limits are configurable per route, default <strong style="color:var(--text);font-weight:560;">1000 / min</strong>. <span style="font-family:var(--mono);font-size:10px;color:var(--add-stat);">added</span></li>
+              <li>Remaining quota is surfaced via <span style="font-family:var(--mono);font-size:12px;background:var(--s2);padding:1px 5px;border-radius:4px;color:var(--text);">X-RateLimit-Remaining</span>.</li>
+            </ul>
+            <h3 style="margin:20px 0 7px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">Out of scope</h3>
+            <p style="margin:0;font-size:13.5px;line-height:1.62;color:var(--text2);">Cross-region token-bucket fairness — tracked separately in #151.</p>
+          </sc-if>
+          <!-- PLAN tab -->
+          <sc-if value="{{ showPlan }}" hint-placeholder-val="{{ false }}">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:14px;display:flex;align-items:center;gap:8px;">specs/008-rate-limiting/plan.md <span style="color:var(--add-stat);">+47</span></div>
+            <h2 style="margin:0 0 18px;font-size:17px;font-weight:600;letter-spacing:-.01em;">Implementation Plan</h2>
+            <h3 style="margin:0 0 7px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">Architecture</h3>
+            <p style="margin:0;font-size:13.5px;line-height:1.62;color:var(--text2);">A <span style="font-family:var(--mono);font-size:12px;color:var(--text);">RateLimiter</span> backed by Redis <span style="font-family:var(--mono);font-size:12px;color:var(--text);">INCR</span> with a per-key TTL window. Enforcement happens in gateway middleware before the route handler runs.</p>
+            <h3 style="margin:20px 0 7px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">Components</h3>
+            <ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.62;color:var(--text2);">
+              <li style="margin-bottom:6px;"><span style="font-family:var(--mono);font-size:12px;color:var(--text);">limits.ts</span> — config resolution (defaults + per-route overrides)</li>
+              <li style="margin-bottom:6px;"><span style="font-family:var(--mono);font-size:12px;color:var(--text);">rateLimiter.ts</span> — counting &amp; allow/deny verdict</li>
+              <li><span style="font-family:var(--mono);font-size:12px;color:var(--text);">middleware.ts</span> — enforcement + response headers</li>
+            </ul>
+            <h3 style="margin:20px 0 7px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">Data model</h3>
+            <div style="font-family:var(--mono);font-size:12px;background:var(--s2);border-radius:var(--radius-sm);padding:11px 12px;color:var(--text2);line-height:1.7;">key:&nbsp;&nbsp;rl:{workspaceId}:{route}<br>value: counter (INCR)<br>ttl:&nbsp;&nbsp;cfg.windowSec</div>
+            <h3 style="margin:20px 0 7px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">Risks</h3>
+            <p style="margin:0;font-size:13.5px;line-height:1.62;color:var(--text2);">Redis latency on the hot path. Mitigation: pipeline INCR+EXPIRE; circuit-break to fail-open if Redis is unavailable (follow-up).</p>
+          </sc-if>
+          <!-- TASKS tab -->
+          <sc-if value="{{ showTasks }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
+              <h2 style="margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em;flex:1;">Tasks</h2>
+              <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text);">{{ tasksDone }}/{{ tasksTotal }}</span>
+            </div>
+            <div style="height:6px;border-radius:999px;background:var(--s3);overflow:hidden;margin-bottom:22px;">
+              <div style="height:100%;width:{{ tasksPct }}%;background:var(--accent);border-radius:999px;transition:width .3s cubic-bezier(.4,0,.2,1);"></div>
+            </div>
+            <sc-for list="{{ phases }}" as="ph" hint-placeholder-count="3">
+              <div style="font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin:0 0 6px;">{{ ph.name }}</div>
+              <div style="margin-bottom:18px;">
+                <sc-for list="{{ ph.tasks }}" as="t" hint-placeholder-count="3">
+                  <div onClick="{{ t.toggle }}" style="display:flex;gap:10px;align-items:flex-start;padding:6px 8px;margin:0 -8px;border-radius:var(--radius-sm);cursor:pointer;" style-hover="background:var(--s2);">
+                    <span style="margin-top:1px;width:16px;height:16px;flex:none;border-radius:5px;border:1px solid {{ t.boxBorder }};background:{{ t.boxBg }};display:flex;align-items:center;justify-content:center;color:var(--accent-text);">{{ t.check }}</span>
+                    <div style="flex:1;min-width:0;font-size:13px;line-height:1.5;">
+                      <span style="font-family:var(--mono);font-size:10.5px;color:var(--text3);margin-right:6px;">{{ t.code }}</span>
+                      <span style="color:{{ t.textColor }};text-decoration:{{ t.strike }};">{{ t.text }}</span>
+                      <sc-if value="{{ t.isNew }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--mono);font-size:9px;font-weight:600;color:var(--add-stat);background:var(--add-bg);padding:1px 5px;border-radius:5px;margin-left:6px;">new</span></sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </sc-if>
+        </div>
+      </aside>
+    </div>
+    </sc-if>
+
+    <!-- ---------- REVIEW ---------- -->
+    <sc-if value="{{ isReview }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Review" style="flex:1;overflow:auto;">
+      <div style="max-width:680px;margin:0 auto;padding:34px 28px 70px;">
+        <button onClick="{{ goFiles }}" style="font-family:var(--mono);font-size:12px;color:var(--text2);background:none;border:none;cursor:pointer;padding:0;margin-bottom:18px;" style-hover="color:var(--text);">← back to files</button>
+        <h1 style="margin:0 0 5px;font-size:22px;font-weight:600;letter-spacing:-.01em;">Submit your review</h1>
+        <p style="margin:0 0 24px;font-size:13.5px;color:var(--text2);line-height:1.55;">7 files changed across 9 commits · spec, plan and tasks reviewed.</p>
+
+        <!-- review form -->
+        <div style="background:var(--surface);border:1px solid var(--card-border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;">
+          <div style="padding:var(--pad);border-bottom:1px solid var(--border);">
+            <sc-for list="{{ reviewOptions }}" as="o" hint-placeholder-count="3">
+              <div onClick="{{ o.select }}" style="display:flex;gap:11px;align-items:flex-start;padding:11px;margin-bottom:6px;border:1px solid {{ o.border }};border-radius:var(--radius-sm);cursor:pointer;background:{{ o.bg }};">
+                <span style="margin-top:1px;width:17px;height:17px;flex:none;border-radius:999px;border:1.5px solid {{ o.ringColor }};display:flex;align-items:center;justify-content:center;"><span style="width:8px;height:8px;border-radius:999px;background:{{ o.dotBg }};"></span></span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13.5px;font-weight:560;color:var(--text);display:flex;align-items:center;gap:8px;">{{ o.title }}<sc-if value="{{ o.irreversible }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--mono);font-size:9px;font-weight:600;color:var(--warn);background:var(--warn-bg);padding:1px 6px;border-radius:5px;">confirm required</span></sc-if></div>
+                  <div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-top:2px;">{{ o.desc }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="padding:var(--pad);">
+            <textarea onInput="{{ onReviewInput }}" placeholder="Leave a comment… (markdown supported)" style="width:100%;min-height:96px;resize:vertical;font-family:var(--sans);font-size:13.5px;line-height:1.55;color:var(--text);background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:11px 12px;outline:none;" style-focus="border-color:var(--text3);"></textarea>
+            <div style="display:flex;align-items:center;gap:11px;margin-top:14px;">
+              <button onClick="{{ submitReview }}" style="font-family:var(--sans);font-size:13px;font-weight:560;padding:9px 18px;border:none;border-radius:var(--radius-sm);background:{{ submitBg }};color:{{ submitFg }};cursor:pointer;box-shadow:var(--shadow);" style-hover="filter:brightness(1.08);">{{ submitLabel }}</button>
+              <span style="font-size:12px;color:var(--text3);">{{ submitHint }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- merge box -->
+        <div style="margin-top:24px;background:var(--surface);border:1px solid var(--card-border);border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--pad);">
+          <div style="display:flex;align-items:center;gap:11px;">
+            <span style="width:30px;height:30px;flex:none;border-radius:999px;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center;">{{ checkIcon }}</span>
+            <div style="flex:1;">
+              <div style="font-size:14px;font-weight:600;">{{ mergeTitle }}</div>
+              <div style="font-size:12.5px;color:var(--text2);margin-top:1px;">All checks passed · 1 approval · no conflicts with <span style="font-family:var(--mono);font-size:11.5px;">main</span></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:15px;">
+            <button onClick="{{ openMerge }}" style="font-family:var(--sans);font-size:13px;font-weight:560;padding:9px 18px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:var(--accent-text);cursor:pointer;box-shadow:var(--shadow);" style-hover="filter:brightness(1.08);">Merge pull request</button>
+            <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text3);"><span style="font-family:var(--mono);">Squash and merge</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+  </main>
+
+  <!-- ============ TOAST ============ -->
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--accent);color:var(--accent-text);font-size:13px;font-weight:500;padding:11px 18px;border-radius:var(--radius);box-shadow:var(--shadow-lg);z-index:50;animation:toastIn .25s cubic-bezier(.2,.7,.2,1);display:flex;align-items:center;gap:9px;">
+      <span>{{ toastIcon }}</span>{{ toast }}
+    </div>
+  </sc-if>
+
+  <!-- ============ CONFIRM MODAL ============ -->
+  <sc-if value="{{ hasConfirm }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeConfirm }}" style="position:fixed;inset:0;background:var(--overlay);backdrop-filter:blur(2px);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;animation:fade .15s ease;">
+      <div onClick="{{ stop }}" style="width:440px;max-width:100%;background:var(--surface);border:1px solid var(--card-border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:24px;animation:pop .2s cubic-bezier(.2,.7,.2,1);">
+        <div style="display:flex;gap:13px;align-items:flex-start;">
+          <span style="width:34px;height:34px;flex:none;border-radius:999px;background:{{ confirmIconBg }};color:{{ confirmIconFg }};display:flex;align-items:center;justify-content:center;">{{ confirmIcon }}</span>
+          <div style="flex:1;">
+            <h3 style="margin:0 0 5px;font-size:16px;font-weight:600;">{{ confirmTitle }}</h3>
+            <p style="margin:0;font-size:13.5px;line-height:1.55;color:var(--text2);">{{ confirmBody }}</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:9px;justify-content:flex-end;margin-top:22px;">
+          <button onClick="{{ closeConfirm }}" style="font-family:var(--sans);font-size:13px;font-weight:550;padding:8px 15px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);cursor:pointer;" style-hover="background:var(--s2);">Cancel</button>
+          <button onClick="{{ doConfirm }}" style="font-family:var(--sans);font-size:13px;font-weight:560;padding:8px 16px;border:none;border-radius:var(--radius-sm);background:{{ confirmBtnBg }};color:{{ confirmBtnFg }};cursor:pointer;box-shadow:var(--shadow);" style-hover="filter:brightness(1.08);">{{ confirmLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;styleTake&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;structured&quot;,&quot;soft&quot;,&quot;editor&quot;],&quot;default&quot;:&quot;structured&quot;,&quot;tsType&quot;:&quot;'structured'|'soft'|'editor'&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;diffMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;split&quot;,&quot;unified&quot;],&quot;default&quot;:&quot;split&quot;,&quot;tsType&quot;:&quot;'split'|'unified'&quot;,&quot;section&quot;:&quot;Prototype&quot;}}">
+class Component extends DCLogic {
+  state = {
+    theme: this.props.theme || 'light',
+    take: this.props.styleTake || 'structured',
+    screen: 'overview',
+    diffMode: this.props.diffMode || 'split',
+    selFile: 'middleware',
+    specTab: 'spec',
+    viewed: false,
+    reviewAction: 'comment',
+    reviewText: '',
+    confirm: null,
+    toast: null,
+    prState: 'open',
+    tasks: [
+      { id:'t1', code:'T001', text:'Define LimitConfig type + defaults', done:true, phase:'Setup & Config', isNew:false },
+      { id:'t2', code:'T002', text:'resolveLimit() with per-route overrides', done:true, phase:'Setup & Config', isNew:false },
+      { id:'t3', code:'T003', text:'RateLimiter.check via Redis INCR/EXPIRE', done:true, phase:'Core enforcement', isNew:false },
+      { id:'t4', code:'T004', text:'Wire limiter into gateway middleware', done:true, phase:'Core enforcement', isNew:false },
+      { id:'t5', code:'T005', text:'Return 429 + Retry-After + Remaining headers', done:true, phase:'Core enforcement', isNew:false },
+      { id:'t6', code:'T006', text:'Unit tests for limiter verdicts', done:true, phase:'Validation', isNew:false },
+      { id:'t7', code:'T007', text:'Integration test: 429 under sustained load', done:false, phase:'Validation', isNew:true },
+      { id:'t8', code:'T008', text:'Emit rate_limit_hit metrics counter', done:false, phase:'Validation', isNew:true },
+      { id:'t9', code:'T009', text:'Document rate-limit headers in API reference', done:false, phase:'Docs', isNew:true },
+    ],
+  };
+
+  // ---- icons ----
+  ic(path, o) { o = o || {}; return React.createElement('svg', { viewBox:'0 0 14 14', width:o.s||13, height:o.s||13, fill:'none', stroke:'currentColor', strokeWidth:o.w||1.5, strokeLinecap:'round', strokeLinejoin:'round' }, path.map((d,i)=>React.createElement('path',{key:i,d}))); }
+  iCheck(s){ return this.ic(['M2.8 7.2 L5.6 10 L11.2 4'], {s:s||11, w:1.8}); }
+  iX(){ return this.ic(['M3.5 3.5 L10.5 10.5','M10.5 3.5 L3.5 10.5'], {s:13}); }
+  iSun(){ return React.createElement('svg',{viewBox:'0 0 16 16',width:15,height:15,fill:'none',stroke:'currentColor',strokeWidth:1.4,strokeLinecap:'round'},React.createElement('circle',{cx:8,cy:8,r:3.2}),['M8 1.3v1.6','M8 13.1v1.6','M1.3 8h1.6','M13.1 8h1.6','M3.3 3.3l1.1 1.1','M11.6 11.6l1.1 1.1','M12.7 3.3l-1.1 1.1','M4.4 11.6l-1.1 1.1'].map((d,i)=>React.createElement('path',{key:i,d}))); }
+  iMoon(){ return React.createElement('svg',{viewBox:'0 0 16 16',width:15,height:15,fill:'currentColor'},React.createElement('path',{d:'M13 9.4A5.4 5.4 0 0 1 6.6 3 5.6 5.6 0 1 0 13 9.4Z'})); }
+  iComment(){ return this.ic(['M2.5 3.5h9v6h-5l-2.5 2v-2h-1.5z'], {s:11, w:1.4}); }
+  iGit(){ return React.createElement('svg',{viewBox:'0 0 14 14',width:11,height:11,fill:'currentColor'},React.createElement('circle',{cx:3.5,cy:3.5,r:1.6}),React.createElement('circle',{cx:3.5,cy:10.5,r:1.6}),React.createElement('circle',{cx:10.5,cy:7,r:1.6}),React.createElement('path',{d:'M3.5 5.1v3.8M5 7h3.9',stroke:'currentColor',strokeWidth:1.2,fill:'none'})); }
+  iWarn(){ return React.createElement('svg',{viewBox:'0 0 16 16',width:16,height:16,fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round'},React.createElement('path',{d:'M8 2.5 14.5 13.5H1.5z'}),React.createElement('path',{d:'M8 6.5v3.2'}),React.createElement('circle',{cx:8,cy:11.6,r:.5,fill:'currentColor'})); }
+  iMerge(){ return React.createElement('svg',{viewBox:'0 0 14 14',width:15,height:15,fill:'currentColor'},React.createElement('circle',{cx:3.5,cy:3.5,r:1.6}),React.createElement('circle',{cx:3.5,cy:10.5,r:1.6}),React.createElement('circle',{cx:10.5,cy:7,r:1.6}),React.createElement('path',{d:'M3.5 5.1v3.8',stroke:'currentColor',strokeWidth:1.2,fill:'none'}),React.createElement('path',{d:'M5 9.5c3.5 0 4-1 4.5-2.5',stroke:'currentColor',strokeWidth:1.2,fill:'none'})); }
+
+  // ---- diff data ----
+  files() {
+    return {
+      middleware: { path:'src/gateway/middleware.ts', label:'middleware.ts', dir:'src/gateway/', add:12, del:1, status:'mod',
+        hunks:[
+          { header:'@@ -1,7 +1,8 @@', oldStart:1, newStart:1, lines:[
+            " import { Request, Response } from 'express';",
+            " import { GatewayOpts } from './types';",
+            "+import { RateLimiter } from './rateLimiter';",
+            " ",
+            " export function gateway(opts: GatewayOpts) {",
+            "-  const limiter = opts.limiter;",
+            "+  const limiter = new RateLimiter(opts.redis);",
+            " " ] },
+          { header:'@@ -14,7 +15,16 @@ export function gateway(opts: GatewayOpts) {', oldStart:14, newStart:15, lines:[
+            "   return async (req, res, next) => {",
+            "     const workspaceId = req.headers['x-workspace-id'];",
+            "     if (!workspaceId) return res.status(400).end();",
+            "+",
+            "+    const rl = await limiter.check(workspaceId, req.route.path);",
+            "+    res.setHeader('X-RateLimit-Remaining', rl.remaining);",
+            "+    if (!rl.allowed) {",
+            "+      res.setHeader('Retry-After', Math.ceil((rl.resetAt - Date.now()) / 1000));",
+            "+      return res.status(429).json({ error: 'rate_limited' });",
+            "+    }",
+            "+",
+            "     return next();",
+            "   };" ] },
+        ] },
+      rateLimiter: { path:'src/gateway/rateLimiter.ts', label:'rateLimiter.ts', dir:'src/gateway/', add:24, del:0, status:'add',
+        hunks:[ { header:'@@ -0,0 +1,26 @@', oldStart:0, newStart:1, lines:[
+          "+import { RedisClient } from '../redis';",
+          "+import { LimitConfig, resolveLimit } from '../config/limits';",
+          "+",
+          "+export interface RateLimitResult {",
+          "+  allowed: boolean;",
+          "+  remaining: number;",
+          "+  resetAt: number;",
+          "+}",
+          "+",
+          "+export class RateLimiter {",
+          "+  constructor(private redis: RedisClient) {}",
+          "+",
+          "+  async check(workspaceId: string, route: string): Promise<RateLimitResult> {",
+          "+    const cfg = resolveLimit(workspaceId, route);",
+          "+    const key = `rl:${workspaceId}:${route}`;",
+          "+    const count = await this.redis.incr(key);",
+          "+    if (count === 1) await this.redis.expire(key, cfg.windowSec);",
+          "+    return {",
+          "+      allowed: count <= cfg.max,",
+          "+      remaining: Math.max(0, cfg.max - count),",
+          "+      resetAt: Date.now() + cfg.windowSec * 1000,",
+          "+    };",
+          "+  }",
+          "+}" ] } ] },
+      limits: { path:'src/config/limits.ts', label:'limits.ts', dir:'src/config/', add:14, del:0, status:'add',
+        hunks:[ { header:'@@ -0,0 +1,16 @@', oldStart:0, newStart:1, lines:[
+          "+export interface LimitConfig { max: number; windowSec: number; }",
+          "+",
+          "+const DEFAULTS: LimitConfig = { max: 1000, windowSec: 60 };",
+          "+",
+          "+const OVERRIDES: Record<string, LimitConfig> = {",
+          "+  'POST:/v1/exports': { max: 10, windowSec: 60 },",
+          "+  'POST:/v1/messages': { max: 200, windowSec: 60 },",
+          "+};",
+          "+",
+          "+export function resolveLimit(workspaceId: string, route: string): LimitConfig {",
+          "+  return OVERRIDES[route] ?? DEFAULTS;",
+          "+}" ] } ] },
+      test: { path:'tests/rateLimiter.test.ts', label:'rateLimiter.test.ts', dir:'tests/', add:16, del:0, status:'add',
+        hunks:[ { header:'@@ -0,0 +1,18 @@', oldStart:0, newStart:1, lines:[
+          "+import { RateLimiter } from '../src/gateway/rateLimiter';",
+          "+import { fakeRedis } from './helpers/redis';",
+          "+",
+          "+test('allows requests under the limit', async () => {",
+          "+  const rl = new RateLimiter(fakeRedis());",
+          "+  const r = await rl.check('ws_1', 'GET:/v1/ping');",
+          "+  expect(r.allowed).toBe(true);",
+          "+});",
+          "+",
+          "+test('blocks the 1001st request in a window', async () => {",
+          "+  const rl = new RateLimiter(fakeRedis());",
+          "+  for (let i = 0; i < 1000; i++) await rl.check('ws_1', 'x');",
+          "+  const r = await rl.check('ws_1', 'x');",
+          "+  expect(r.allowed).toBe(false);",
+          "+});" ] } ] },
+    };
+  }
+
+  buildUnified(f){ const rows=[]; f.hunks.forEach((h,hi)=>{ rows.push({isHunk:true,isLine:false,text:h.header,key:'h'+hi}); let o=h.oldStart,n=h.newStart; h.lines.forEach((ln,li)=>{ const t=ln[0],text=ln.slice(1),key=hi+'-'+li; if(t==='+'){rows.push({isHunk:false,isLine:true,sign:'+',oldNo:'',newNo:n++,text,bg:'var(--add-bg)',key});} else if(t==='-'){rows.push({isHunk:false,isLine:true,sign:'-',oldNo:o++,newNo:'',text,bg:'var(--del-bg)',key});} else {rows.push({isHunk:false,isLine:true,sign:'',oldNo:o++,newNo:n++,text,bg:'transparent',key});} }); }); return rows; }
+
+  buildSplit(f){ const rows=[]; f.hunks.forEach((h,hi)=>{ rows.push({isHunk:true,isLine:false,text:h.header,key:'h'+hi}); let o=h.oldStart,n=h.newStart; const L=h.lines; let i=0; while(i<L.length){ const t=L[i][0]; if(t===' '||t===''){ const text=L[i].slice(1); rows.push({isHunk:false,isLine:true,left:{no:o++,text,bg:'transparent',sign:''},right:{no:n++,text,bg:'transparent',sign:''},key:hi+'-c'+i}); i++; continue;} const dels=[],adds=[]; while(i<L.length&&L[i][0]==='-'){dels.push(L[i].slice(1));i++;} while(i<L.length&&L[i][0]==='+'){adds.push(L[i].slice(1));i++;} const m=Math.max(dels.length,adds.length); for(let k=0;k<m;k++){ const hasD=k<dels.length,hasA=k<adds.length; rows.push({isHunk:false,isLine:true, left:hasD?{no:o++,text:dels[k],bg:'var(--del-bg)',sign:'-'}:{no:'',text:'',bg:'var(--empty-bg)',sign:''}, right:hasA?{no:n++,text:adds[k],bg:'var(--add-bg)',sign:'+'}:{no:'',text:'',bg:'var(--empty-bg)',sign:''}, key:hi+'-x'+i+'-'+k}); } } }); return rows; }
+
+  // ---- theme tokens ----
+  rootStyle(){
+    const L = this.state.theme==='light';
+    const c = L ? {
+      bg:'oklch(0.984 0.002 248)', surface:'oklch(1 0 0)', s2:'oklch(0.966 0.003 248)', s3:'oklch(0.94 0.004 248)',
+      border:'oklch(0.912 0.004 248)', border2:'oklch(0.85 0.006 250)',
+      text:'oklch(0.245 0.012 258)', text2:'oklch(0.5 0.012 258)', text3:'oklch(0.64 0.01 258)',
+      addbg:'oklch(0.952 0.035 150)', delbg:'oklch(0.957 0.03 25)', empty:'oklch(0.976 0.002 248)',
+      addstat:'oklch(0.52 0.1 150)', delstat:'oklch(0.55 0.13 25)',
+      ok:'oklch(0.55 0.1 150)', okbg:'oklch(0.95 0.04 150)', warn:'oklch(0.56 0.12 65)', warnbg:'oklch(0.95 0.05 75)',
+      danger:'oklch(0.53 0.16 25)', dangerbg:'oklch(0.95 0.04 25)',
+      accent:'oklch(0.27 0.012 258)', accentText:'oklch(0.99 0 0)', accent2:'oklch(0.55 0.01 258)',
+      overlay:'oklch(0.3 0.02 258 / 0.32)'
+    } : {
+      bg:'oklch(0.176 0.006 262)', surface:'oklch(0.212 0.007 262)', s2:'oklch(0.248 0.008 262)', s3:'oklch(0.29 0.009 262)',
+      border:'oklch(0.305 0.008 262)', border2:'oklch(0.38 0.01 262)',
+      text:'oklch(0.95 0.004 262)', text2:'oklch(0.72 0.008 262)', text3:'oklch(0.56 0.008 262)',
+      addbg:'oklch(0.30 0.045 152)', delbg:'oklch(0.315 0.055 24)', empty:'oklch(0.195 0.006 262)',
+      addstat:'oklch(0.78 0.13 152)', delstat:'oklch(0.74 0.13 24)',
+      ok:'oklch(0.74 0.12 152)', okbg:'oklch(0.3 0.05 152)', warn:'oklch(0.78 0.11 75)', warnbg:'oklch(0.32 0.06 75)',
+      danger:'oklch(0.7 0.15 24)', dangerbg:'oklch(0.32 0.06 24)',
+      accent:'oklch(0.95 0.004 262)', accentText:'oklch(0.2 0.01 262)', accent2:'oklch(0.62 0.01 262)',
+      overlay:'oklch(0.08 0.02 262 / 0.55)'
+    };
+    const takes = {
+      structured:{ radius:'8px', radiusSm:'6px', shadow:'none', pad:'15px', rowH:'27px', cardBorder:c.border, panelHdr:'transparent' },
+      soft:{ radius:'14px', radiusSm:'9px', shadow:(L?'0 1px 2px rgba(20,22,28,.04), 0 12px 28px -18px rgba(20,22,28,.22)':'0 1px 2px rgba(0,0,0,.3), 0 14px 34px -18px rgba(0,0,0,.6)'), pad:'19px', rowH:'29px', cardBorder:'transparent', panelHdr:'transparent' },
+      editor:{ radius:'4px', radiusSm:'3px', shadow:'none', pad:'11px', rowH:'24px', cardBorder:c.border, panelHdr:c.s2 },
+    };
+    const k = takes[this.state.take] || takes.structured;
+    const shadowLg = L ? '0 30px 70px -24px rgba(20,22,28,.34), 0 8px 20px -12px rgba(20,22,28,.2)' : '0 30px 80px -24px rgba(0,0,0,.75)';
+    return [
+      '--bg:'+c.bg,'--surface:'+c.surface,'--s2:'+c.s2,'--s3:'+c.s3,'--border:'+c.border,'--border2:'+c.border2,
+      '--text:'+c.text,'--text2:'+c.text2,'--text3:'+c.text3,
+      '--add-bg:'+c.addbg,'--del-bg:'+c.delbg,'--empty-bg:'+c.empty,'--add-stat:'+c.addstat,'--del-stat:'+c.delstat,
+      '--ok:'+c.ok,'--ok-bg:'+c.okbg,'--warn:'+c.warn,'--warn-bg:'+c.warnbg,'--danger:'+c.danger,'--danger-bg:'+c.dangerbg,
+      '--accent:'+c.accent,'--accent-text:'+c.accentText,'--accent-2:'+c.accent2,'--overlay:'+c.overlay,
+      '--radius:'+k.radius,'--radius-sm:'+k.radiusSm,'--shadow:'+k.shadow,'--shadow-lg:'+shadowLg,
+      '--pad:'+k.pad,'--row-h:'+k.rowH,'--card-border:'+k.cardBorder,'--panel-hdr:'+k.panelHdr,
+      "--sans:'Geist', system-ui, -apple-system, sans-serif",
+      "--mono:'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace",
+    ].join(';');
+  }
+
+  showToast(msg, icon){ this.setState({ toast:msg, toastIcon:icon }); clearTimeout(this._tt); this._tt=setTimeout(()=>this.setState({toast:null}), 3600); }
+  toggleTask(id){ this.setState(s=>({ tasks:s.tasks.map(t=>t.id===id?{...t,done:!t.done}:t) })); }
+
+  openConfirm(kind){
+    const A = {
+      approve:{ title:'Submit approval?', body:'This approves the PR and notifies dana-k. It satisfies the required review and unblocks merge.', label:'Approve', danger:false, icon:this.iCheck(16), tone:'ok' },
+      request:{ title:'Request changes?', body:'This submits a blocking review. The author is notified and merge stays blocked until changes are pushed and re-reviewed.', label:'Request changes', danger:true, icon:this.iWarn(), tone:'danger' },
+      merge:{ title:'Merge this pull request?', body:'This squashes 9 commits into main and closes #142. Merging cannot be undone from here — you would need a revert PR.', label:'Confirm squash & merge', danger:true, icon:this.iMerge(), tone:'danger' },
+    };
+    this.setState({ confirm:{ kind, ...A[kind] } });
+  }
+  closeConfirm(){ this.setState({ confirm:null }); }
+  doConfirm(){
+    const k = this.state.confirm && this.state.confirm.kind;
+    if(k==='approve'){ this.setState({prState:'approved'}); this.showToast('Approved — 1 of 1 required reviews', this.iCheck(12)); }
+    else if(k==='request'){ this.setState({prState:'changes_requested'}); this.showToast('Changes requested — author notified', this.iWarn()); }
+    else if(k==='merge'){ this.setState({prState:'merged'}); this.showToast('Pull request #142 merged into main', this.iMerge()); }
+    this.setState({ confirm:null });
+  }
+
+  submitReview(){
+    const a = this.state.reviewAction;
+    if(a==='comment'){ this.showToast('Comment posted on the review', this.iComment()); }
+    else if(a==='approve'){ this.openConfirm('approve'); }
+    else if(a==='request'){ this.openConfirm('request'); }
+  }
+
+  renderVals(){
+    const s = this.state, L = s.theme==='light';
+    const seg = (active)=>({ bg: active?'var(--surface)':'transparent', fg: active?'var(--text)':'var(--text2)', sh: active?'var(--shadow), 0 1px 2px rgba(0,0,0,.06)':'none' });
+    const ov=seg(s.screen==='overview'), fl=seg(s.screen==='files'), rv=seg(s.screen==='review');
+    const tk=(name)=>({ bg: s.take===name?'var(--accent)':'transparent', fg: s.take===name?'var(--accent-text)':'var(--text2)' });
+    const tks=tk('structured'), tkso=tk('soft'), tke=tk('editor');
+
+    // status
+    const stMap = {
+      open:{ label:'Open', fg:'var(--ok)', bg:'var(--ok-bg)', bd:'transparent' },
+      approved:{ label:'Approved', fg:'var(--ok)', bg:'var(--ok-bg)', bd:'transparent' },
+      changes_requested:{ label:'Changes requested', fg:'var(--danger)', bg:'var(--danger-bg)', bd:'transparent' },
+      merged:{ label:'Merged', fg:'var(--accent-2)', bg:'var(--s2)', bd:'transparent' },
+    };
+    const st = stMap[s.prState] || stMap.open;
+
+    // files
+    const F = this.files();
+    const sel = F[s.selFile] || F.middleware;
+    const codeFiles = ['middleware','rateLimiter','limits','test'].map(id=>{ const f=F[id]; const on=s.selFile===id; return {
+      label:f.label, addStat:'+'+f.add, delStat:'−'+f.del,
+      dot: f.status==='add'?'var(--add-stat)':'var(--warn)',
+      nameColor: on?'var(--text)':'var(--text2)',
+      rowBg: on?'var(--s2)':'transparent',
+      select: ()=>this.setState({selFile:id}),
+    };});
+    const specMeta = { spec:{label:'spec.md',metaShort:'+38 −2'}, plan:{label:'plan.md',metaShort:'+47'}, tasks:{label:'tasks.md',metaShort:this.state.tasks.filter(t=>t.done).length+'/'+this.state.tasks.length} };
+    const specFiles = ['spec','plan','tasks'].map(id=>({
+      label:specMeta[id].label, metaShort:specMeta[id].metaShort,
+      rowBg: s.specTab===id ? 'var(--s2)' : 'transparent',
+      select: ()=>this.setState({screen:'files',specTab:id}),
+      openHere: ()=>this.setState({screen:'files',specTab:id}),
+    }));
+
+    const useSplit = s.diffMode==='split';
+    const sp=(active)=>({ bg:active?'var(--surface)':'transparent', fg:active?'var(--text)':'var(--text2)', sh:active?'var(--shadow), 0 1px 2px rgba(0,0,0,.06)':'none' });
+    const spS=sp(useSplit), spU=sp(!useSplit);
+    const tab=(name)=>({ bg: s.specTab===name?'var(--accent)':'var(--s2)', fg: s.specTab===name?'var(--accent-text)':'var(--text2)' });
+    const tbS=tab('spec'), tbP=tab('plan'), tbT=tab('tasks');
+
+    const tasksDone = s.tasks.filter(t=>t.done).length, tasksTotal=s.tasks.length;
+    const phaseOrder=['Setup & Config','Core enforcement','Validation','Docs'];
+    const phases = phaseOrder.map(name=>({ name, tasks: s.tasks.filter(t=>t.phase===name).map(t=>({
+      code:t.code, text:t.text, isNew:t.isNew,
+      check: t.done?this.iCheck(11):'',
+      boxBg: t.done?'var(--accent)':'transparent',
+      boxBorder: t.done?'var(--accent)':'var(--border2)',
+      textColor: t.done?'var(--text3)':'var(--text)',
+      strike: t.done?'line-through':'none',
+      toggle: ()=>this.toggleTask(t.id),
+    })) }));
+
+    // review options
+    const ra=s.reviewAction;
+    const rOpt=(id,title,desc,irr)=>({ title, desc, irreversible:irr,
+      select: ()=>this.setState({reviewAction:id}),
+      border: ra===id?'var(--text3)':'var(--border)',
+      bg: ra===id?'var(--s2)':'transparent',
+      ringColor: ra===id?'var(--accent)':'var(--border2)',
+      dotBg: ra===id?'var(--accent)':'transparent',
+    });
+    const reviewOptions = [
+      rOpt('comment','Comment','Submit general feedback without explicit approval.',false),
+      rOpt('approve','Approve','Submit feedback and approve merging these changes.',true),
+      rOpt('request','Request changes','Submit feedback that must be addressed before merging.',true),
+    ];
+    const subMap = {
+      comment:{ label:'Submit comment', bg:'var(--accent)', fg:'var(--accent-text)', hint:'Posts immediately' },
+      approve:{ label:'Approve…', bg:'var(--accent)', fg:'var(--accent-text)', hint:'Asks you to confirm first' },
+      request:{ label:'Request changes…', bg:'var(--danger)', fg:'oklch(0.99 0 0)', hint:'Asks you to confirm first' },
+    };
+    const sub = subMap[ra];
+
+    const cf = s.confirm;
+    const toneBg = cf ? (cf.tone==='danger'?'var(--danger-bg)':'var(--ok-bg)') : 'transparent';
+    const toneFg = cf ? (cf.tone==='danger'?'var(--danger)':'var(--ok)') : 'var(--text)';
+    const cBtnBg = cf ? (cf.danger?'var(--danger)':'var(--accent)') : 'var(--accent)';
+    const cBtnFg = cf ? (cf.danger?'oklch(0.99 0 0)':'var(--accent-text)') : 'var(--accent-text)';
+
+    const timeline = [
+      { who:'ci-bot', text:'pushed 9 commits and all 12 checks passed', when:'2 days ago', icon:this.iGit(), iconColor:'var(--text3)', hasBody:false },
+      { who:'maya-r', text:'reviewed the spec and left a comment', when:'1 day ago', icon:this.iComment(), iconColor:'var(--text3)', hasBody:true, body:'Spec reads well. One ask: please make the 1000/min default explicit in the acceptance criteria so clients know the baseline — done in the latest push.' },
+      { who:'dana-k', text:'marked tasks T001–T006 complete', when:'18 hours ago', icon:this.iCheck(11), iconColor:'var(--ok)', hasBody:false },
+      { who:'maya-r', text:'was requested for review', when:'18 hours ago', icon:this.iComment(), iconColor:'var(--text3)', hasBody:false },
+    ];
+    const reviewers = [
+      { name:'maya-r', initials:'MR', status: s.prState==='approved'?'approved':(s.prState==='changes_requested'?'changes':'pending'), color: s.prState==='approved'?'var(--ok)':(s.prState==='changes_requested'?'var(--danger)':'var(--text3)'), icon:'' },
+      { name:'sam-ito', initials:'SI', status:'pending', color:'var(--text3)', icon:'' },
+    ];
+
+    return {
+      rootStyle: this.rootStyle(),
+      // status
+      statusLabel:st.label, statusFg:st.fg, statusBg:st.bg, statusBorder:st.bd,
+      // screen flags + nav
+      isOverview:s.screen==='overview', isFiles:s.screen==='files', isReview:s.screen==='review',
+      goOverview:()=>this.setState({screen:'overview'}), goFiles:()=>this.setState({screen:'files'}), goReview:()=>this.setState({screen:'review'}),
+      ovBg:ov.bg,ovFg:ov.fg,ovShadow:ov.sh, flBg:fl.bg,flFg:fl.fg,flShadow:fl.sh, rvBg:rv.bg,rvFg:rv.fg,rvShadow:rv.sh,
+      // style takes
+      takeStructured:()=>this.setState({take:'structured'}), takeSoft:()=>this.setState({take:'soft'}), takeEditor:()=>this.setState({take:'editor'}),
+      tkStructuredBg:tks.bg,tkStructuredFg:tks.fg, tkSoftBg:tkso.bg,tkSoftFg:tkso.fg, tkEditorBg:tke.bg,tkEditorFg:tke.fg,
+      toggleTheme:()=>this.setState({theme:L?'dark':'light'}), themeIcon: L?this.iMoon():this.iSun(),
+      // overview data
+      timeline, reviewers, specFiles, checkIcon:this.iCheck(12),
+      // files
+      codeFiles, selPath:sel.path, selStat:'+'+sel.add+' −'+sel.del,
+      setSplit:()=>this.setState({diffMode:'split'}), setUnified:()=>this.setState({diffMode:'unified'}),
+      splitBg:spS.bg,splitFg:spS.fg,splitShadow:spS.sh, unifiedBg:spU.bg,unifiedFg:spU.fg,unifiedShadow:spU.sh,
+      useSplit, useUnified:!useSplit, splitRows:this.buildSplit(sel), unifiedRows:this.buildUnified(sel),
+      toggleViewed:()=>this.setState({viewed:!s.viewed}), viewedBox: s.viewed?'var(--accent)':'transparent', viewedCheck: s.viewed?this.iCheck(11):'',
+      // spec tabs
+      tabSpec:()=>this.setState({specTab:'spec'}), tabPlan:()=>this.setState({specTab:'plan'}), tabTasks:()=>this.setState({specTab:'tasks'}),
+      tabSpecBg:tbS.bg,tabSpecFg:tbS.fg, tabPlanBg:tbP.bg,tabPlanFg:tbP.fg, tabTasksBg:tbT.bg,tabTasksFg:tbT.fg,
+      showSpec:s.specTab==='spec', showPlan:s.specTab==='plan', showTasks:s.specTab==='tasks',
+      tasksDone, tasksTotal, tasksPct: Math.round(tasksDone/tasksTotal*100), phases,
+      // review
+      reviewOptions, onReviewInput:(e)=>this.setState({reviewText:e.target.value}),
+      submitReview:()=>this.submitReview(), submitLabel:sub.label, submitBg:sub.bg, submitFg:sub.fg, submitHint:sub.hint,
+      mergeTitle: s.prState==='merged'?'Merged':'This branch has no conflicts', openMerge:()=>this.openConfirm('merge'),
+      // toast
+      hasToast: !!s.toast, toast:s.toast, toastIcon:s.toastIcon,
+      // confirm
+      hasConfirm: !!cf, closeConfirm:()=>this.closeConfirm(), doConfirm:()=>this.doConfirm(), stop:(e)=>e.stopPropagation(),
+      confirmTitle: cf?cf.title:'', confirmBody: cf?cf.body:'', confirmLabel: cf?cf.label:'', confirmIcon: cf?cf.icon:'',
+      confirmIconBg:toneBg, confirmIconFg:toneFg, confirmBtnBg:cBtnBg, confirmBtnFg:cBtnFg,
+    };
+  }
+}
+</script>
+</body>
+</html>
