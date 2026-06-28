@@ -22,6 +22,47 @@ Three specific GitHub-web annoyances it fixes:
    are detected and rendered single-column, full width, with the noisy
    `@@ -0,0 +1,N @@` headers suppressed.
 
+## Features
+
+### Diff reading
+- Unified and split diff views, toggle per file
+- **Syntax highlighting** for JS/TS/JSON/Python/Shell
+- **Expand context** — click "↕ Show more context" on any hunk separator to load
+  10 additional lines from GitHub inline, without leaving the page
+- **Search in diff** — `Cmd+F` opens an in-page search bar with prev/next
+  navigation and match count; `Escape` closes it
+- **Open on GitHub** — link in the diff toolbar jumps directly to the file at
+  the PR head commit
+- File rail groups files by type: Code, Config, Docs (within each section)
+- **Viewed toggle** — mark files as reviewed; the rail shows a checkmark and
+  dims the filename. State is per-PR and resets when you open a different PR
+
+### Commenting
+- Drag or shift-click the gutter to select a line range, then add an inline comment
+- "Insert suggestion" prefills a ` ```suggestion ` block from the selected lines
+- **Reply to thread** — Reply button on any existing comment opens a composer
+  scoped to that thread; `Cmd+Enter` submits, `Escape` cancels
+- **Comment resolution** — Resolve button per comment dims the thread locally
+  (visual only — does not call the GitHub API)
+- Comments are batched into a pending review tray and submitted together (COMMENT,
+  APPROVE, or REQUEST CHANGES). Approve/Request Changes are gated behind a confirm
+  dialog
+
+### Spec panel
+- Detects `spec.md`, `plan.md`, and `tasks.md` in changed files and renders them
+  as formatted markdown in a right-hand panel alongside the diff
+- **Added-line highlights** — lines that are additions in the PR diff get a green
+  left-accent highlight in the spec panel, so you can see what changed in the spec
+  without switching to the raw diff view
+- Tasks tab shows a "new" badge on task lines that were added in this PR
+- **PR description card** — collapsible card at the top of the file rail shows
+  the PR title and body
+
+### Navigation
+- `j` / `k` — next / previous file in the rail
+- `n` / `p` — next / previous comment thread in the current diff
+- `Cmd+F` — open diff search
+
 ## Setup
 
 Prereqs: Node 18+ and the GitHub CLI (`gh`), already authenticated.
@@ -61,22 +102,14 @@ add are batched into a pending review tray and submitted together as one review.
 
 Merging is intentionally **not** here — do that on github.com as you already do.
 
-## Spec-Kit angle (next step, not yet built)
-
-The obvious extension for your team: detect `spec.md` / `plan.md` / `tasks.md`
-in the changed files and render them as formatted markdown in a side panel
-rather than as just-another-diff. The parser already tags every file with its
-path and status, so branching on those filenames is a small addition.
-
 ## Files
 
-- `server.js` — Express server, shells out to `gh`. ~5 routes.
+- `server.js` — Express server, shells out to `gh`. ~6 routes.
 - `public/index.html` — the whole frontend (no build step).
 
 ## Caveats
 
-- Read + comment focused. No reply-to-thread yet (the GitHub API for replying
-  into an existing review thread needs the thread/comment id; straightforward to
-  add).
 - Diffs are parsed from `gh pr diff` unified output. Binary files show no rows.
+- Comment resolution (Resolve button) is local UI state only — it does not mark
+  threads resolved on GitHub.
 - One repo per running instance (whatever dir you launch from).

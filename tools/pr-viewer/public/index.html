@@ -276,8 +276,54 @@ a:hover { text-decoration: underline; }
 .segmented button.active { background: var(--s2); color: var(--text); }
 .segmented button:hover:not(.active) { background: var(--s3); color: var(--text2); }
 .viewed-toggle { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text3); cursor: pointer; user-select: none; }
+.gh-link { color: var(--text3); text-decoration: none; display: flex; align-items: center; opacity: 0.7; }
+.gh-link:hover { opacity: 1; color: var(--accent); }
 .diff-scroll { flex: 1; overflow: auto; }
 .diff-empty { color: var(--text3); padding: 40px 20px; text-align: center; font-size: 13px; }
+
+/* Search bar */
+.diff-search {
+  height: 36px; border-bottom: 1px solid var(--border); background: var(--surface);
+  display: none; align-items: center; gap: 8px; padding: 0 14px; flex-shrink: 0;
+}
+.diff-search.open { display: flex; }
+.diff-search input { flex: 1; background: var(--s2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px 8px; font-size: 12px; color: var(--text); font-family: var(--mono); outline: none; }
+.diff-search input:focus { border-color: var(--accent); }
+.diff-search .search-count { font-size: 11px; color: var(--text3); white-space: nowrap; min-width: 50px; }
+.diff-search button { font-size: 11px; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: none; color: var(--text3); cursor: pointer; }
+.diff-search button:hover { color: var(--text); }
+mark.search-hit { background: oklch(0.75 0.15 85 / 0.5); border-radius: 2px; color: inherit; }
+mark.search-hit.current { background: oklch(0.75 0.15 85 / 0.9); }
+
+/* PR description card */
+.pr-desc-card {
+  margin: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--s2); font-size: 12.5px; overflow: hidden;
+}
+.pr-desc-head {
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  cursor: pointer; user-select: none; color: var(--text2);
+}
+.pr-desc-head:hover { color: var(--text); }
+.pr-desc-body { padding: 0 10px 8px; color: var(--text2); white-space: pre-wrap; line-height: 1.5; display: none; }
+.pr-desc-body.open { display: block; }
+
+/* Comment resolution */
+.resolve-btn { margin-top: 6px; font-size: 11px; padding: 2px 8px; background: transparent; border: 1px solid var(--border); color: var(--text3); cursor: pointer; border-radius: var(--radius-sm); }
+.resolve-btn:hover { color: var(--text1); border-color: var(--accent); }
+.comment-row.resolved .inline-comment { opacity: 0.4; }
+.comment-row.resolved .resolve-btn { color: var(--ok); border-color: var(--ok); }
+
+/* Syntax highlighting */
+.tok-kw    { color: oklch(0.72 0.16 290); }   /* purple — keywords */
+.tok-str   { color: oklch(0.72 0.14 150); }   /* green — strings */
+.tok-cmt   { color: var(--text3); font-style: italic; } /* comments */
+.tok-num   { color: oklch(0.72 0.14 55); }    /* orange — numbers */
+.tok-fn    { color: oklch(0.72 0.14 220); }   /* blue — functions */
+[data-theme="light"] .tok-kw  { color: oklch(0.45 0.18 290); }
+[data-theme="light"] .tok-str { color: oklch(0.42 0.16 150); }
+[data-theme="light"] .tok-num { color: oklch(0.45 0.16 55); }
+[data-theme="light"] .tok-fn  { color: oklch(0.42 0.16 220); }
 
 /* Diff table */
 table.diff { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12.5px; }
@@ -294,6 +340,8 @@ tr.add .gutter-r { box-shadow: inset 2px 0 0 var(--add-stat); }
 tr.del td.code   { background: var(--del-bg); }
 tr.del .gutter-r { box-shadow: inset 2px 0 0 var(--del-stat); }
 tr.hunk-row td   { background: var(--hunk-bg); color: var(--text3); padding: 2px 8px; font-size: 11px; }
+.expand-ctx-btn  { background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--text3); font-size: 11px; padding: 1px 6px; cursor: pointer; margin-right: 6px; }
+.expand-ctx-btn:hover { color: var(--text1); border-color: var(--text3); }
 tr.selected td.code  { background: var(--sel); }
 tr.selected .gutter-r{ box-shadow: inset 2px 0 0 var(--sel-edge); }
 tr.sel-start td.code { box-shadow: inset 0 1px 0 var(--sel-edge); }
@@ -522,6 +570,9 @@ kbd { font-family: var(--mono); font-size: 11px; background: var(--s2); border: 
         <div class="diff-area">
           <div class="diff-toolbar" id="diffToolbar">
             <span class="file-path" id="diffFilePath" style="color:var(--text3)">No file selected</span>
+            <a id="ghFileLink" class="gh-link" target="_blank" style="display:none" title="Open on GitHub">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            </a>
             <div class="spacer" style="flex:1"></div>
             <label class="viewed-toggle" id="viewedToggle" style="display:none">
               <input type="checkbox" id="viewedCheck"> Viewed
@@ -530,6 +581,13 @@ kbd { font-family: var(--mono); font-size: 11px; background: var(--s2); border: 
               <button id="btnUnified" class="active" onclick="setDiffMode('unified')">Unified</button>
               <button id="btnSplit" onclick="setDiffMode('split')">Split</button>
             </div>
+          </div>
+          <div class="diff-search" id="diffSearch">
+            <input id="searchInput" placeholder="Search in file…" autocomplete="off" />
+            <span class="search-count" id="searchCount"></span>
+            <button id="searchPrev" title="Previous (Shift+Enter)">↑</button>
+            <button id="searchNext" title="Next (Enter)">↓</button>
+            <button id="searchClose" title="Close (Escape)">✕</button>
           </div>
           <div class="diff-scroll" id="diffScroll">
             <div class="diff-empty">Select a file from the rail.</div>
@@ -611,7 +669,8 @@ const state = {
   confirm: null,
   prState: 'open',
   prMeta: null,
-  viewed: new Map(), // Map<prNum, Set<filePath>>
+  viewed:   new Map(), // Map<prNum, Set<filePath>>
+  resolved: new Map(), // Map<prNum, Set<commentId>>
 };
 
 function isViewed(path) { return (state.viewed.get(state.current) ?? new Set()).has(path); }
@@ -619,6 +678,12 @@ function setViewed(path, val) {
   if (!state.viewed.has(state.current)) state.viewed.set(state.current, new Set());
   const s = state.viewed.get(state.current);
   if (val) s.add(path); else s.delete(path);
+}
+function isResolved(id) { return (state.resolved.get(state.current) ?? new Set()).has(id); }
+function setResolved(id, val) {
+  if (!state.resolved.has(state.current)) state.resolved.set(state.current, new Set());
+  const s = state.resolved.get(state.current);
+  if (val) s.add(id); else s.delete(id);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -764,6 +829,7 @@ async function openPR(num) {
   state.specTab = state.specFiles[0]?.kind || 'spec';
 
   renderFileRail();
+  renderPRDesc(data.meta);
   renderSpecPanel();
   if (state.selFile) renderDiff(state.selFile);
   renderOverview(data.meta);
@@ -1052,6 +1118,14 @@ function renderDiff(path) {
   const pathEl = $('#diffFilePath');
   if (pathEl) pathEl.textContent = path;
 
+  // GitHub link
+  const ghLink = $('#ghFileLink');
+  if (ghLink && state.prMeta) {
+    const base = state.prMeta.url.replace(/\/pull\/\d+$/, '');
+    ghLink.href = `${base}/blob/${state.commitId}/${path}`;
+    ghLink.style.display = 'flex';
+  }
+
   // Viewed toggle
   const toggle = $('#viewedToggle'), check = $('#viewedCheck');
   if (toggle && check) {
@@ -1073,12 +1147,18 @@ function renderDiffUnified(f) {
   const isNew = f.status === 'added';
   const table = el('table', { className: 'diff' });
 
-  for (const h of f.hunks) {
+  const ext = f.path.split('.').pop().toLowerCase();
+  for (let hi = 0; hi < f.hunks.length; hi++) {
+    const h = f.hunks[hi];
     for (const r of h.rows) {
       if (r.type === 'hunk') {
         if (isNew) continue;
         const tr = el('tr', { className: 'hunk-row' });
-        tr.append(el('td', { colSpan: isNew ? 2 : 3, textContent: r.text }));
+        const td = el('td', { colSpan: isNew ? 2 : 3 });
+        const expandBtn = el('button', { className: 'expand-ctx-btn', textContent: '↕ Show more context' });
+        expandBtn.onclick = () => expandContext(tr, f, hi, 'up');
+        td.append(expandBtn, el('span', { textContent: ' ' + r.text, style: 'color:var(--text3);font-size:11px' }));
+        tr.append(td);
         table.append(tr); continue;
       }
       const tr = el('tr', { className: r.type === 'add' ? 'add' : r.type === 'del' ? 'del' : '' });
@@ -1092,8 +1172,11 @@ function renderDiffUnified(f) {
       }
       tr.append(g2);
       const code = el('td', { className: 'code' });
-      code.append(el('span', { className: 'sign-col', textContent: r.type === 'add' ? '+' : r.type === 'del' ? '-' : ' ' }));
-      code.append(document.createTextNode(r.text));
+      const sign = el('span', { className: 'sign-col', textContent: r.type === 'add' ? '+' : r.type === 'del' ? '-' : ' ' });
+      code.append(sign);
+      const html = highlightCode(r.text, ext);
+      if (html) { const s = document.createElement('span'); s.innerHTML = html; code.append(s); }
+      else code.append(document.createTextNode(r.text));
       tr.append(code);
       tr.dataset.line = r.newNo ?? '';
       tr.dataset.path = f.path;
@@ -1185,15 +1268,23 @@ function renderDiffSplit(f) {
 }
 
 function makeCommentRow(c, colSpan) {
-  const crow = el('tr', { className: 'comment-row' });
+  const resolved = c.id && isResolved(c.id);
+  const crow = el('tr', { className: 'comment-row' + (resolved ? ' resolved' : '') });
   const td = el('td', { colSpan });
   const box = el('div', { className: 'inline-comment' });
   box.append(el('div', { className: 'who', textContent: '@' + (c.user?.login || '?') }));
   box.append(document.createTextNode(c.body || ''));
   if (c.id) {
+    const actions = el('div', { style: 'display:flex;gap:6px;margin-top:6px' });
     const replyBtn = el('button', { className: 'reply-btn', textContent: 'Reply' });
     replyBtn.onclick = () => openReplyComposer(c.id, box);
-    box.append(replyBtn);
+    const resolveBtn = el('button', { className: 'resolve-btn', textContent: resolved ? 'Resolved' : 'Resolve' });
+    resolveBtn.onclick = () => {
+      setResolved(c.id, !isResolved(c.id));
+      if (state.selFile) renderDiff(state.selFile);
+    };
+    actions.append(replyBtn, resolveBtn);
+    box.append(actions);
   }
   td.append(box); crow.append(td);
   return crow;
@@ -1594,6 +1685,234 @@ function renderReview() {
   mergeCard.append(el('div', { style: 'font-size:13px;color:var(--text3)', textContent: 'Merging is done on GitHub.com — this keeps the review tool focused on reading and commenting.' }));
   container.append(mergeCard);
 }
+
+// ─── PR Description Card ──────────────────────────────────────────────────
+function renderPRDesc(meta) {
+  const rail = $('#fileRail');
+  const existing = rail.querySelector('.pr-desc-card');
+  if (existing) existing.remove();
+  if (!meta?.body) return;
+  const card = el('div', { className: 'pr-desc-card' });
+  const head = el('div', { className: 'pr-desc-head' });
+  head.append(el('span', { textContent: '▸', id: 'prDescArrow', style: 'font-size:10px;color:var(--text3)' }));
+  head.append(el('span', { textContent: meta.title, style: 'font-size:12px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }));
+  const body = el('div', { className: 'pr-desc-body', textContent: meta.body });
+  head.onclick = () => {
+    const open = body.classList.toggle('open');
+    $('#prDescArrow').textContent = open ? '▾' : '▸';
+  };
+  card.append(head, body);
+  rail.prepend(card);
+}
+
+// ─── Syntax Highlighting ──────────────────────────────────────────────────
+const SYN = {
+  js:   { kw: /\b(const|let|var|function|return|if|else|for|while|class|import|export|default|async|await|new|this|typeof|instanceof|throw|try|catch|finally|of|in|from|true|false|null|undefined|void)\b/g, str: /(["'`])(?:\\.|(?!\1)[^\\])*\1/g, cmt: /(\/\/[^\n]*)|(\/\*[\s\S]*?\*\/)/g, num: /\b\d+(\.\d+)?\b/g },
+  json: { str: /"(?:\\.|[^"\\])*"(?=\s*:)/g, val: /"(?:\\.|[^"\\])*"/g, num: /\b\d+(\.\d+)?\b/g, kw: /\b(true|false|null)\b/g },
+  py:   { kw: /\b(def|class|import|from|return|if|elif|else|for|while|in|not|and|or|is|None|True|False|try|except|finally|with|as|pass|raise|lambda|yield|async|await)\b/g, str: /("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, cmt: /(#[^\n]*)/g, num: /\b\d+(\.\d+)?\b/g },
+  sh:   { kw: /\b(if|then|else|fi|for|do|done|while|function|return|export|local|echo|exit|case|esac|in)\b/g, str: /(["'])(?:\\.|(?!\1)[^\\])*\1/g, cmt: /(#[^\n]*)/g },
+};
+SYN.ts = SYN.jsx = SYN.tsx = SYN.mjs = SYN.cjs = SYN.js;
+SYN.bash = SYN.zsh = SYN.sh;
+
+function highlightCode(text, ext) {
+  const rules = SYN[ext];
+  if (!rules) return null; // no highlighting for this type
+  // Escape HTML first
+  let s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Mark regions to avoid double-highlighting: build a mask
+  const spans = [];
+  const add = (cls, re) => {
+    let m;
+    re.lastIndex = 0;
+    const clone = new RegExp(re.source, re.flags);
+    while ((m = clone.exec(s)) !== null) {
+      spans.push({ start: m.index, end: m.index + m[0].length, cls, text: m[0] });
+    }
+  };
+  if (rules.cmt) add('tok-cmt', rules.cmt);
+  if (rules.str) add('tok-str', rules.str);
+  if (rules.val) add('tok-str', rules.val);
+  if (rules.kw)  add('tok-kw',  rules.kw);
+  if (rules.num) add('tok-num', rules.num);
+  // Sort by start, filter overlaps
+  spans.sort((a, b) => a.start - b.start || b.end - a.end);
+  let out = '', pos = 0;
+  for (const sp of spans) {
+    if (sp.start < pos) continue;
+    out += s.slice(pos, sp.start);
+    out += `<span class="${sp.cls}">${s.slice(sp.start, sp.end)}</span>`;
+    pos = sp.end;
+  }
+  out += s.slice(pos);
+  return out;
+}
+
+function applyHighlight(codeCell, text, filePath) {
+  const ext = (filePath || '').split('.').pop().toLowerCase();
+  const html = highlightCode(text, ext);
+  if (!html) return; // leave as text node
+  const sign = codeCell.querySelector('.sign-col');
+  codeCell.innerHTML = '';
+  if (sign) codeCell.append(sign);
+  const span = document.createElement('span');
+  span.innerHTML = html;
+  codeCell.append(span);
+}
+
+// ─── Context Expansion ────────────────────────────────────────────────────
+async function expandContext(hunkTr, f, hunkIdx, direction) {
+  try {
+    const res = await fetch(`/api/prs/${state.current}/file/${encodeURIComponent(f.path)}?ref=${state.commitId}`);
+    if (!res.ok) return;
+    const { lines } = await res.json();
+    const hunk = f.hunks[hunkIdx];
+    if (!hunk) return;
+
+    const firstRow = hunk.rows.find(r => r.type !== 'hunk');
+    const lastCtx = [...hunk.rows].reverse().find(r => r.type !== 'hunk');
+    const EXPAND = 10;
+
+    let insertLines = [];
+    if (direction === 'up') {
+      const startLine = (firstRow?.oldNo ?? firstRow?.newNo ?? 1) - 1;
+      const from = Math.max(0, startLine - EXPAND);
+      insertLines = lines.slice(from, startLine).map((text, i) => ({ no: from + i + 1, text }));
+    } else {
+      const endLine = (lastCtx?.oldNo ?? lastCtx?.newNo ?? 0);
+      insertLines = lines.slice(endLine, endLine + EXPAND).map((text, i) => ({ no: endLine + i + 1, text }));
+    }
+
+    const ext = f.path.split('.').pop().toLowerCase();
+    for (const ln of (direction === 'up' ? [...insertLines].reverse() : insertLines)) {
+      const tr = el('tr', { className: '' });
+      const g1 = el('td', { className: 'gutter', textContent: String(ln.no) });
+      const g2 = el('td', { className: 'gutter gutter-r', textContent: String(ln.no) });
+      const code = el('td', { className: 'code' });
+      code.append(el('span', { className: 'sign-col', textContent: ' ' }));
+      const html = highlightCode(ln.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'), ext);
+      if (html) { const s = document.createElement('span'); s.innerHTML = html; code.append(s); }
+      else code.append(document.createTextNode(ln.text));
+      tr.append(g1, g2, code);
+      if (direction === 'up') hunkTr.after(tr);
+      else hunkTr.before(tr);
+    }
+    if (insertLines.length < EXPAND) hunkTr.remove(); // fully expanded
+  } catch(e) { console.error('expandContext:', e); }
+}
+
+// ─── Search in Diff ───────────────────────────────────────────────────────
+let searchHits = [], searchIdx = 0;
+
+function openSearch() {
+  const bar = $('#diffSearch'); bar.classList.add('open');
+  $('#searchInput').focus();
+}
+function closeSearch() {
+  $('#diffSearch').classList.remove('open');
+  clearSearchHighlights();
+  searchHits = []; searchIdx = 0;
+  $('#searchCount').textContent = '';
+}
+function clearSearchHighlights() {
+  document.querySelectorAll('mark.search-hit').forEach(m => {
+    m.replaceWith(document.createTextNode(m.textContent));
+  });
+}
+function runSearch(q) {
+  clearSearchHighlights();
+  searchHits = []; searchIdx = 0;
+  if (!q) { $('#searchCount').textContent = ''; return; }
+  const scroll = $('#diffScroll');
+  const codeCells = scroll.querySelectorAll('td.code');
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+  codeCells.forEach(cell => {
+    const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    for (const node of nodes) {
+      const text = node.textContent;
+      if (!re.test(text)) { re.lastIndex = 0; continue; }
+      re.lastIndex = 0;
+      const frag = document.createDocumentFragment();
+      let last = 0, m;
+      while ((m = re.exec(text)) !== null) {
+        frag.append(document.createTextNode(text.slice(last, m.index)));
+        const mark = el('mark', { className: 'search-hit', textContent: m[0] });
+        searchHits.push(mark);
+        frag.append(mark);
+        last = m.index + m[0].length;
+      }
+      frag.append(document.createTextNode(text.slice(last)));
+      node.replaceWith(frag);
+      re.lastIndex = 0;
+    }
+  });
+  updateSearchCount();
+  if (searchHits.length) jumpToHit(0);
+}
+function updateSearchCount() {
+  $('#searchCount').textContent = searchHits.length ? `${searchIdx + 1}/${searchHits.length}` : 'no results';
+}
+function jumpToHit(idx) {
+  searchHits.forEach(m => m.classList.remove('current'));
+  if (!searchHits.length) return;
+  searchIdx = ((idx % searchHits.length) + searchHits.length) % searchHits.length;
+  const hit = searchHits[searchIdx];
+  hit.classList.add('current');
+  hit.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  updateSearchCount();
+}
+
+// Wire search bar
+$('#searchInput').addEventListener('input', e => runSearch(e.target.value));
+$('#searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); jumpToHit(e.shiftKey ? searchIdx - 1 : searchIdx + 1); }
+  if (e.key === 'Escape') closeSearch();
+});
+$('#searchNext').onclick = () => jumpToHit(searchIdx + 1);
+$('#searchPrev').onclick = () => jumpToHit(searchIdx - 1);
+$('#searchClose').onclick = closeSearch;
+
+// ─── Keyboard Navigation ──────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+
+  // Cmd+F / Ctrl+F — open search
+  if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+    e.preventDefault();
+    openSearch();
+    return;
+  }
+
+  // j/k — next/prev file in rail
+  if (e.key === 'j' || e.key === 'k') {
+    const files = state.files;
+    if (!files.length) return;
+    const idx = files.findIndex(f => f.path === state.selFile);
+    const next = e.key === 'j' ? Math.min(idx + 1, files.length - 1) : Math.max(idx - 1, 0);
+    if (next !== idx) { state.selFile = files[next].path; renderFileRail(); renderDiff(files[next].path); }
+    return;
+  }
+
+  // n/p — next/prev comment thread
+  if (e.key === 'n' || e.key === 'p') {
+    const comments = [...document.querySelectorAll('tr.comment-row')];
+    if (!comments.length) return;
+    const scroll = $('#diffScroll');
+    const scrollTop = scroll.scrollTop;
+    if (e.key === 'n') {
+      const next = comments.find(c => c.offsetTop > scrollTop + 10);
+      if (next) scroll.scrollTo({ top: next.offsetTop - 60, behavior: 'smooth' });
+    } else {
+      const prev = [...comments].reverse().find(c => c.offsetTop < scrollTop - 10);
+      if (prev) scroll.scrollTo({ top: prev.offsetTop - 60, behavior: 'smooth' });
+    }
+    return;
+  }
+});
 
 // ─── Boot ─────────────────────────────────────────────────────────────────
 loadPRs();

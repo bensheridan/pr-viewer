@@ -203,6 +203,22 @@ app.post("/api/prs/:num/comment/reply", async (req, res) => {
   }
 });
 
+// Fetch raw file content at a given ref (for context expansion in the diff).
+app.get("/api/prs/:num/file/:path(*)", async (req, res) => {
+  try {
+    const repo = await currentRepo();
+    const ref = req.query.ref || 'HEAD';
+    const filePath = req.params.path;
+    const b64 = await gh([
+      'api', `repos/${repo}/contents/${filePath}?ref=${ref}`, '--jq', '.content',
+    ]);
+    const content = Buffer.from(b64.replace(/\n/g, ''), 'base64').toString('utf8');
+    res.json({ lines: content.split('\n') });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Post a single plain PR-level comment (not inline).
 app.post("/api/prs/:num/comment", async (req, res) => {
   const num = req.params.num;
